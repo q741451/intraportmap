@@ -14,6 +14,12 @@ public:
 	// 那一头(读写挂)
 };
 
+class interface_ipm_agent_server
+{
+public:
+	virtual ~interface_ipm_agent_server() {}
+};
+
 // 服务器端的用户fd服务模块，多个，listen来访客立即建立
 class ipm_agent_server
 {
@@ -21,7 +27,7 @@ public:
 	// 客户端主连接
 	// 服务器代理listen
 
-	// listen结果
+	// listen结果，通知上层有新客户
 	// 客户端结果(读写挂)
 
 	// 不存tunnel tunnel查找需要上层
@@ -55,9 +61,25 @@ public:
 };
 
 // 客户端（一个）
+static void ipm_client_evdns_getaddrinfo_callback(int err, struct evutil_addrinfo* ai, void* arg);
 class ipm_client
 {
 public:
+	ipm_client(struct event_base* base);
+
+	bool init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c,
+		const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c);
+	bool is_init();
+	bool exit();
+	void reset();
+
+public:
+	void on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result);				// 尝试发起DNS查询
+	bool client_connect_to_server(const struct sockaddr* addr, int addr_length);	// 尝试连接到服务器
+
+private:
+	bool dns_query_server();
+
 	// 服务器的IP
 	// 连接
 
@@ -67,6 +89,16 @@ public:
 	// 主动跑ipm_tunnel，内部即可
 
 	// 存一堆tunnel
+private:
+	bool is_state_init;
+	std::string server_name;
+	std::string server_port_name;
+	std::string to_server_name;
+	std::string to_server_port_name;
+	std::string from_server_name;
+	std::string from_server_port_name;
+	struct event_base* root_event_base;
+	struct evdns_base* server_evdns_base;	// 整个程序只查一个dns
 };
 
 class intraportmap
@@ -89,26 +121,24 @@ public:
 	intraportmap();
 
 	bool init(int argc, char* argv[]);
-	bool exit();
 	bool is_init();
+	bool exit();
 	void reset();
 
 	void exec();
 
 public: // libevent过来的事件
 	// DNS
-	void on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result);
+	
 
 private:
 	bool init_config(int argc, char* argv[]);
-	bool dns_query_server();
-	bool client_connect_to_server(const struct sockaddr* addr, int addr_length);
 
 private:
 	bool is_state_init;
 	bool is_server;
-	struct event_base* event_base;
-	struct evdns_base* evdns_base;	// 整个程序只查一个dns
+	struct event_base* root_event_base;
+	std::shared_ptr<ipm_client> sp_ipm_client;
 	std::string server_name;
 	std::string server_port_name;
 	std::string to_server_name;

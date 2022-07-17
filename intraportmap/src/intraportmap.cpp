@@ -1,52 +1,43 @@
 #include "stdafx.h"
 
-static void evutil_addrinfo_callback(int err, struct evutil_addrinfo* ai, void* arg);
+static void ipm_client_evdns_getaddrinfo_callback(int err, struct evutil_addrinfo* ai, void* arg)
+{
+	if (arg)
+		((ipm_client*)arg)->on_evdns_getaddrinfo(err, ai);
+}
 
-intraportmap::intraportmap()
+ipm_client::ipm_client(struct event_base* base) : root_event_base(base)
 {
 	reset();
 }
 
-bool intraportmap::init(int argc, char* argv[])
+bool ipm_client::init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c, const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c)
 {
 	bool ret = false;
 
-	if (init_config(argc, argv) != true)
-		goto end;
+	server_name = server_name_c;
+	server_port_name = server_port_name_c;
+	to_server_name = to_server_name_c;
+	to_server_port_name = to_server_port_name_c;
+	from_server_name = from_server_name_c;
+	from_server_port_name = from_server_port_name_c;
 
-	if ((event_base = event_base_new()) == NULL)
-	{
-		printf("event_base_new error\r\n");
-		goto end;
-	}
-
-	if ((evdns_base = evdns_base_new(event_base, EVDNS_BASE_DISABLE_WHEN_INACTIVE)) == NULL)
+	if ((server_evdns_base = evdns_base_new(root_event_base, EVDNS_BASE_DISABLE_WHEN_INACTIVE)) == NULL)
 	{
 		printf("evdns_base_new error\r\n");
 		goto end;
 	}
 
-	if (is_server)
+	if (dns_query_server() != true)
 	{
-		printf("run as server\r\n");
+		printf("dns_query_server error\r\n");
+		goto end;
 	}
-	else
-	{
-		printf("run as client\r\n");
-		if (dns_query_server() != true)
-		{
-			printf("dns_query_server error\r\n");
-			goto end;
-		}
-	}
-
 
 	ret = true;
 end:
 	if (ret == true)
-	{
 		is_state_init = true;
-	}
 	else
 	{
 		exit();
@@ -55,15 +46,17 @@ end:
 	return ret;
 }
 
-bool intraportmap::exit()
+bool ipm_client::is_init()
+{
+	return is_state_init;
+}
+
+bool ipm_client::exit()
 {
 	bool ret = false;
 
-	if (evdns_base)
-		evdns_base_free(evdns_base, 1);
-
-	if (event_base)
-		event_base_free(event_base);
+	if (server_evdns_base)
+		evdns_base_free(server_evdns_base, 1);
 
 	is_state_init = false;
 
@@ -72,25 +65,13 @@ bool intraportmap::exit()
 	return ret;
 }
 
-bool intraportmap::is_init()
+void ipm_client::reset()
 {
-	return is_state_init;
-}
-
-void intraportmap::reset()
-{
-	is_server = true;
 	is_state_init = false;
-	evdns_base = NULL;
-	event_base = NULL;
+	server_evdns_base = NULL;
 }
 
-void intraportmap::exec()
-{
-	event_base_dispatch(event_base);
-}
-
-void intraportmap::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
+void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 {
 	struct evutil_addrinfo* rp, * ipv4v6bindall;
 
@@ -122,6 +103,139 @@ void intraportmap::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 	}
 
 	// 改变状态 SERVER_CONNECTING
+}
+
+bool ipm_client::client_connect_to_server(const struct sockaddr* addr, int addr_length)
+{
+	bool ret = false;
+
+	/*
+
+	if ((bufferevent = bufferevent_socket_new(event_base, -1, BEV_OPT_CLOSE_ON_FREE)) == NULL)
+	{
+		printf("evdns_base_new error\r\n");
+		goto end;
+	}
+
+	if (bufferevent_socket_connect(bufferevent, addr, addr_length) != 0)
+		goto end;
+
+		*/
+
+	ret = true;
+//end:
+	return ret;
+}
+
+bool ipm_client::dns_query_server()
+{
+	bool ret = false;
+	struct evutil_addrinfo hints;
+
+	memset(&hints, 0, sizeof(struct evutil_addrinfo));
+	hints.ai_family = AF_UNSPEC;               /* Return IPv4 and IPv6 choices */
+	hints.ai_socktype = SOCK_STREAM;             /* We want a TCP socket */
+	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* For wildcard IP address */
+	hints.ai_protocol = IPPROTO_TCP;
+
+	printf("resolving %s:%s...\r\n", server_name.c_str(), server_port_name.c_str());
+
+	// 挂了也会调cb，无需检测返回值
+	evdns_getaddrinfo(server_evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, ipm_client_evdns_getaddrinfo_callback, this);
+
+	ret = true;
+//end:
+	return ret;
+}
+
+intraportmap::intraportmap()
+{
+	reset();
+}
+
+bool intraportmap::init(int argc, char* argv[])
+{
+	bool ret = false;
+
+	if (init_config(argc, argv) != true)
+		goto end;
+
+	if ((root_event_base = event_base_new()) == NULL)
+	{
+		printf("event_base_new error\r\n");
+		goto end;
+	}
+
+	if (is_server)
+	{
+		printf("run as server\r\n");
+	}
+	else
+	{
+		printf("run as client\r\n");
+		sp_ipm_client = std::make_shared<ipm_client>(root_event_base);
+		if (sp_ipm_client->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str()) != true)
+		{
+			printf("sp_ipm_client init error\r\n");
+			goto end;
+		}
+	}
+
+
+	ret = true;
+end:
+	if (ret == true)
+	{
+		is_state_init = true;
+	}
+	else
+	{
+		exit();
+		reset();
+	}
+	return ret;
+}
+
+bool intraportmap::is_init()
+{
+	return is_state_init;
+}
+
+bool intraportmap::exit()
+{
+	bool ret = false;
+
+	if (root_event_base)
+		event_base_free(root_event_base);
+
+	if (sp_ipm_client)
+	{
+		if (sp_ipm_client->is_init())
+			sp_ipm_client->exit();
+	}
+
+	is_state_init = false;
+
+	ret = true;
+//end:
+	return ret;
+}
+
+void intraportmap::reset()
+{
+	is_server = true;
+	is_state_init = false;
+	root_event_base = NULL;
+	if (sp_ipm_client)
+	{
+		sp_ipm_client->reset();
+	}
+	sp_ipm_client.reset();
+}
+
+void intraportmap::exec()
+{
+	event_base_dispatch(root_event_base);
 }
 
 bool intraportmap::init_config(int argc, char* argv[])
@@ -177,51 +291,4 @@ end:
 	return ret;
 }
 
-bool intraportmap::dns_query_server()
-{
-	bool ret = false;
-	struct evutil_addrinfo hints;
 
-	memset(&hints, 0, sizeof(struct evutil_addrinfo));
-	hints.ai_family = AF_UNSPEC;               /* Return IPv4 and IPv6 choices */
-	hints.ai_socktype = SOCK_STREAM;             /* We want a TCP socket */
-	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* For wildcard IP address */
-	hints.ai_protocol = IPPROTO_TCP;
-
-	printf("resolving %s:%s...\r\n", server_name.c_str(), server_port_name.c_str());
-
-	// 挂了也会调cb，无需检测返回值
-	evdns_getaddrinfo(evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, evutil_addrinfo_callback, this);
-
-	ret = true;
-
-	return ret;
-}
-
-bool intraportmap::client_connect_to_server(const struct sockaddr* addr, int addr_length)
-{
-	bool ret = false;
-
-	/*
-
-	if ((bufferevent = bufferevent_socket_new(event_base, -1, BEV_OPT_CLOSE_ON_FREE)) == NULL)
-	{
-		printf("evdns_base_new error\r\n");
-		goto end;
-	}
-
-	if (bufferevent_socket_connect(bufferevent, addr, addr_length) != 0)
-		goto end;
-
-		*/
-
-	ret = true;
-end:
-	return ret;
-}
-
-static void evutil_addrinfo_callback(int err, struct evutil_addrinfo* ai, void* arg)
-{
-	if (arg)
-		((intraportmap*)arg)->on_evdns_getaddrinfo(err, ai);
-}
