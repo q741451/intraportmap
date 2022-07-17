@@ -9,6 +9,12 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="winlib">
+      <UniqueIdentifier>{8edce77e-87ca-4cb6-b782-dde2dbea2584}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="winlib\getopt">
+      <UniqueIdentifier>{b4f098b4-30ed-42df-90af-6746f8cabec0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -17,9 +23,27 @@
     <ClCompile Include="src\stdafx.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="winlib\source\getopt\getopt.c">
+      <Filter>winlib\getopt</Filter>
+    </ClCompile>
+    <ClCompile Include="src\util.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\intraportmap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="winlib\source\getopt\getopt.h">
+      <Filter>winlib\getopt</Filter>
+    </ClInclude>
+    <ClInclude Include="src\util.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\intraportmap.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
