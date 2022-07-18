@@ -98,6 +98,7 @@
       <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)winlib\include\General;$(ProjectDir)winlib\include\$(Platform);$(ProjectDir)winlib\include\$(Platform)\libevent2;$(ProjectDir)winlib\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseFullPaths>false</UseFullPaths>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -117,6 +118,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)winlib\include\General;$(ProjectDir)winlib\include\$(Platform);$(ProjectDir)winlib\include\$(Platform)\libevent2;$(ProjectDir)winlib\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -135,6 +137,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)winlib\include\General;$(ProjectDir)winlib\include\$(Platform);$(ProjectDir)winlib\include\$(Platform)\libevent2;$(ProjectDir)winlib\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseFullPaths>false</UseFullPaths>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -154,6 +157,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)winlib\include\General;$(ProjectDir)winlib\include\$(Platform);$(ProjectDir)winlib\include\$(Platform)\libevent2;$(ProjectDir)winlib\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -167,6 +171,7 @@
   <ItemGroup>
     <ClCompile Include="src\intraportmap.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\slog.cpp" />
     <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -183,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\intraportmap.h" />
+    <ClInclude Include="src\slog.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\util.h" />
     <ClInclude Include="winlib\source\getopt\getopt.h" />

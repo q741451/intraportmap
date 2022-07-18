@@ -15,15 +15,19 @@
 #include <arpa/inet.h>
 #endif
 
+#include <signal.h>
+
 #include <vector>
 #include <string>
 #include <memory>
 
 #include <event2/event.h>
 #include <event2/listener.h>
+#include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
 
+#include "slog.h"
 #include "util.h"
 #include "intraportmap.h"
 

@@ -32,6 +32,9 @@
     <ClCompile Include="src\intraportmap.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\slog.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx.h">
@@ -44,6 +47,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\intraportmap.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\slog.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
