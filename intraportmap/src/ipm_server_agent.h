@@ -2,14 +2,14 @@
 #define _IPM_AGENT_SERVER_H
 
 
-class interface_ipm_agent_server
+class interface_ipm_server_agent
 {
 public:
-	virtual ~interface_ipm_agent_server() {}
+	virtual ~interface_ipm_server_agent() {}
 };
 
 // 服务器端的用户fd服务模块，多个，listen来访客立即建立
-class ipm_agent_server
+class ipm_server_agent
 {
 public:
 	// 客户端主连接

@@ -3,13 +3,13 @@
 
 // 配对完成后的转发tunnel，客户端收到控制信号编号立即建立
 // 客户端（一个）
-class interface_ipm_tunnel_client
+class interface_ipm_client_tunnel
 {
 public:
-	virtual ~interface_ipm_tunnel_client() {}
+	virtual ~interface_ipm_client_tunnel() {}
 	virtual void on_interface_ipm_tunnel_client_fail(unsigned int index) = 0;
 };
-class ipm_tunnel_client
+class ipm_client_tunnel
 {
 public:
 	enum class TO_STATE : UINT32
@@ -26,11 +26,11 @@ public:
 		RUNNING,
 	};
 
-	ipm_tunnel_client(struct event_base* base, interface_ipm_tunnel_client* ptr_interface_p);
+	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p);
 
 private:
 	bool is_state_init;
-	interface_ipm_tunnel_client* ptr_interface;
+	interface_ipm_client_tunnel* ptr_interface;
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 };
