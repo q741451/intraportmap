@@ -170,6 +170,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\intraportmap.cpp" />
+    <ClCompile Include="src\ipm_agent_server.cpp" />
+    <ClCompile Include="src\ipm_client.cpp" />
+    <ClCompile Include="src\ipm_server.cpp" />
+    <ClCompile Include="src\ipm_tunnel_client.cpp" />
+    <ClCompile Include="src\ipm_tunnel_server.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\slog.cpp" />
     <ClCompile Include="src\stdafx.cpp">
@@ -188,6 +193,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\intraportmap.h" />
+    <ClInclude Include="src\ipm_agent_server.h" />
+    <ClInclude Include="src\ipm_client.h" />
+    <ClInclude Include="src\ipm_server.h" />
+    <ClInclude Include="src\ipm_tunnel_client.h" />
+    <ClInclude Include="src\ipm_tunnel_server.h" />
+    <ClInclude Include="src\ipm_types.h" />
     <ClInclude Include="src\slog.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\util.h" />

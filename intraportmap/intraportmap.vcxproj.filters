@@ -35,6 +35,21 @@
     <ClCompile Include="src\slog.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\ipm_agent_server.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ipm_client.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ipm_server.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ipm_tunnel_client.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ipm_tunnel_server.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx.h">
@@ -50,6 +65,24 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\slog.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_agent_server.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_client.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_server.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_tunnel_client.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_tunnel_server.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipm_types.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

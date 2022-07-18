@@ -29,6 +29,12 @@
 
 #include "slog.h"
 #include "util.h"
+#include "ipm_types.h"
+#include "ipm_tunnel_server.h"
+#include "ipm_agent_server.h"
+#include "ipm_server.h"
+#include "ipm_tunnel_client.h"
+#include "ipm_client.h"
 #include "intraportmap.h"
 
 #endif
