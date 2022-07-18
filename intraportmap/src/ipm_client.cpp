@@ -23,13 +23,13 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 	from_server_port_name = from_server_port_name_c;
 	client_reconn_time = client_reconn_time_u;
 
-	if (util::getaddrinfo_first(to_server_name.c_str(), to_server_port_name.c_str(), to_server_addr) != true)
+	if (util::getaddrinfo_first(to_server_name.c_str(), to_server_port_name.c_str(), to_server_addr, &to_server_addr_len) != true)
 	{
 		slog_error("getaddrinfo_first to_server_name error");
 		goto end;
 	}
 
-	if (util::getaddrinfo_first(from_server_name.c_str(), from_server_port_name.c_str(), from_server_addr) != true)
+	if (util::getaddrinfo_first(from_server_name.c_str(), from_server_port_name.c_str(), from_server_addr, &from_server_addr_len) != true)
 	{
 		slog_error("getaddrinfo_first from_server_name error");
 		goto end;
@@ -77,6 +77,7 @@ bool ipm_client::is_init()
 bool ipm_client::exit()
 {
 	bool ret = false;
+	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
 	client_exit();
 
@@ -85,6 +86,12 @@ bool ipm_client::exit()
 
 	if (timer_event)
 		event_free(timer_event);
+
+	for (iter_tunnel = mst_tunnel.begin(); iter_tunnel != mst_tunnel.end(); ++iter_tunnel)
+	{
+		if (iter_tunnel->second->is_init())
+			iter_tunnel->second->exit();
+	}
 
 	is_state_init = false;
 
@@ -98,9 +105,30 @@ void ipm_client::reset()
 	client_state = CLIENT_STATE::IDLE;
 	client_reconn_time = 15;
 	is_state_init = false;
+	server_addr_len = 0;
+	to_server_addr_len = 0;
+	from_server_addr_len = 0;
 	timer_event = NULL;
 	server_evdns_base = NULL;
+	mst_tunnel.clear();
 	client_reset();
+}
+
+void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned int index)
+{
+	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
+
+	if ((iter_tunnel = mst_tunnel.find(index)) == mst_tunnel.end())
+	{
+		slog_error("unknown tunnel index");
+		on_fatal_fail();
+		return;
+	}
+
+	if (iter_tunnel->second->is_init())
+		iter_tunnel->second->exit();
+
+	mst_tunnel.erase(iter_tunnel);
 }
 
 void ipm_client::on_fail()
@@ -155,7 +183,9 @@ void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		slog_info("client_connect_to_server %s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str());
-		if (client_connect_to_server(rp->ai_addr, rp->ai_addrlen) != true)
+		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
+		server_addr_len = rp->ai_addrlen;
+		if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)
 		{
 			on_fail();
 			goto end;
@@ -226,7 +256,29 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 			goto end;
 		}
 		slog_info("RUNNING alloc %d", ret_val);
-		// alloc tunnel
+		{
+			std::shared_ptr<ipm_client_tunnel> st_tunnel = std::make_shared<ipm_client_tunnel>(root_event_base, this, ret_val);
+			std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
+
+			// 重复则覆盖掉
+			if ((iter_tunnel = mst_tunnel.find(ret_val)) != mst_tunnel.end())
+			{
+				if (iter_tunnel->second->is_init())
+					iter_tunnel->second->exit();
+				mst_tunnel.erase(iter_tunnel);
+			}
+
+			// 允许启动失败
+			if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len) != true)
+			{
+				slog_error("st_tunnel->init error");
+				ret = true;
+				goto end;
+			}
+
+			// 启动成功
+			mst_tunnel[ret_val] = st_tunnel;
+		}
 		break;
 	default:
 		slog_error("unknown state error");
@@ -331,7 +383,7 @@ bool ipm_client::client_connect_to_server(const struct sockaddr* addr, int addr_
 
 	if ((server_bufferevent = bufferevent_socket_new(root_event_base, -1, BEV_OPT_CLOSE_ON_FREE)) == NULL)
 	{
-		slog_error("evdns_base_new error");
+		slog_error("bufferevent_socket_new error");
 		goto end;
 	}
 	bufferevent_setcb(server_bufferevent, ipm_client_bufferevent_data_read_callback, ipm_client_bufferevent_data_write_callback, ipm_client_bufferevent_event_callback, this);

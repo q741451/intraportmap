@@ -37,7 +37,7 @@ end:
 	return ret;
 }
 
-bool util::getaddrinfo_first(const char* host_name, const char* port_name, struct sockaddr_storage& addr)
+bool util::getaddrinfo_first(const char* host_name, const char* port_name, struct sockaddr_storage& addr, unsigned int* addr_len)
 {
 	bool ret = false;
 	struct evutil_addrinfo hints;
@@ -70,7 +70,7 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		memcpy(&addr, rp->ai_addr, rp->ai_addrlen);
-
+		*addr_len = rp->ai_addrlen;
 		// 只取第一个
 		break;
 	}

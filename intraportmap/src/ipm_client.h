@@ -9,7 +9,7 @@ public:
 	virtual void on_interface_ipm_client_fail() = 0;
 };
 
-class ipm_client
+class ipm_client : public interface_ipm_client_tunnel
 {
 public:
 	enum class CLIENT_STATE : UINT32
@@ -32,6 +32,9 @@ public:
 	void reset();
 
 public:
+	virtual void on_interface_ipm_tunnel_client_fail(unsigned int index);
+
+public:
 	void on_fail();
 	void on_fatal_fail();
 	void on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result);
@@ -48,9 +51,6 @@ private:
 	void client_reset();					// 重连之前准备
 	bool set_reconnect_timmer();				// 重连延迟
 
-	// 主动跑ipm_tunnel，内部即可
-
-	// 存一堆tunnel
 private:
 	interface_ipm_client* ptr_interface;
 	bool is_state_init;
@@ -63,13 +63,18 @@ private:
 	std::string from_server_name;
 	std::string from_server_port_name;
 	// 转换后的地址
+	struct sockaddr_storage server_addr;
+	unsigned int server_addr_len;
 	struct sockaddr_storage to_server_addr;
+	unsigned int to_server_addr_len;
 	struct sockaddr_storage from_server_addr;
+	unsigned int from_server_addr_len;
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 	// 整个类的生命周期
 	struct event* timer_event;				// 定时器
 	struct evdns_base* server_evdns_base;	// 整个程序只查一个dns
+	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>> mst_tunnel;
 	// 重连生命周期(client)
 	struct bufferevent* server_bufferevent;	// 连接到服务器
 };
