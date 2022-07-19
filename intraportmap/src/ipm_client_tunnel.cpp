@@ -93,71 +93,16 @@ void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferev
 {
 	bool ret = false;
 
-	if (server_state == SERVER_STATE::PENETRATING)
+	if (from_state == FROM_STATE::RUNNING)
 	{
 		struct evbuffer* input = bufferevent_get_input(bev);
-		size_t length = evbuffer_get_length(input);
-		std::string s_data;
-		int bytes_copied = 0;
-		int ret_val = -1;
 
-		if (length < 8)
+		if (bufferevent_write_buffer(from_bufferevent, input) != 0)
 		{
-			ret = true;
+			slog_error("bufferevent_write_buffer error");
 			goto end;
-		}
-
-		s_data.resize(8);
-
-		if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), 8)) != 8)
-		{
-			slog_error("evbuffer_remove error");
-			goto end;
-		}
-
-		if (util::check_checksum(s_data.c_str(), 4, s_data.c_str() + 4) != true)
-		{
-			slog_error("check_checksum error");
-			goto end;
-		}
-		ret_val = ntohl(*(unsigned int*)s_data.c_str());
-		if (ret_val != 0)
-		{
-			slog_error("PENETRATE return error");
-			goto end;
-		}
-		// 成功了，等来数据
-		slog_info("PENETRATE return ok");
-		server_state = SERVER_STATE::RUNNING;
-		if (from_state == FROM_STATE::RUNNING)
-		{
-			slog_info("flush_from_data");
-			if (flush_from_data() != true)
-			{
-				slog_error("flush_from_data error");
-				goto end;
-			}
 		}
 	}
-	else if (server_state == SERVER_STATE::RUNNING)
-	{
-		if (from_state == FROM_STATE::RUNNING)
-		{
-			struct evbuffer* input = bufferevent_get_input(bev);
-
-			if (bufferevent_write_buffer(from_bufferevent, input) != 0)
-			{
-				slog_error("bufferevent_write_buffer error");
-				goto end;
-			}
-		}
-	}
-	else
-	{
-		slog_error("server_state error");
-		goto end;
-	}
-		
 
 	ret = true;
 end:
@@ -205,9 +150,24 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		// 发送
-		slog_info("server BEV_EVENT_CONNECTED, now penetrating...");
-		//
-		server_state = SERVER_STATE::PENETRATING;
+		slog_info("server BEV_EVENT_CONNECTED");
+		server_state = SERVER_STATE::RUNNING;
+		if (send_penetrate(bev) != true)
+		{
+			slog_error("send_penetrate error");
+			on_fail();
+			return;
+		}
+		if (from_state == FROM_STATE::RUNNING)
+		{
+			slog_info("flush_from_data");
+			if(flush_from_data() != true)
+			{
+				slog_error("flush_from_data error");
+				on_fail();
+				return;
+			}
+		}
 	}
 }
 

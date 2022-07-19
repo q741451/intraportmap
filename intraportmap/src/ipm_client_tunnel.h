@@ -9,6 +9,7 @@ public:
 	virtual ~interface_ipm_client_tunnel() {}
 	virtual void on_interface_ipm_tunnel_client_fail(unsigned int index) = 0;
 };
+
 class ipm_client_tunnel
 {
 public:
@@ -22,7 +23,6 @@ public:
 	{
 		IDLE,
 		CONNECTING,
-		PENETRATING,
 		RUNNING,
 	};
 
