@@ -108,6 +108,28 @@ void ipm_server::on_interface_ipm_server_agent_fail(bufferevent* bev)
 	msa_agent.erase(iter);
 }
 
+bool ipm_server::on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd)
+{
+	std::shared_ptr<ipm_server_tunnel> st_tunnel = std::make_shared<ipm_server_tunnel>(root_event_base, this, to_fd);
+	bool ret = false;
+
+	if (st_tunnel->init(to_bev) != true)
+	{
+		slog_error("st_tunnel->init(to_bev) error");
+		goto end;
+	}
+
+	mst_tunnel[to_fd] = st_tunnel;
+
+end:
+	if (ret != true)
+	{
+		if (st_tunnel->is_init())
+			st_tunnel->exit();
+	}
+	return ret;
+}
+
 void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd)
 {
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
@@ -176,7 +198,6 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	unsigned char* buffer;
 	alloc_agent_package_t* ag_agent = NULL;
 	std::string s_data;
-	bool fatal = false;
 	bool ret = false;
 
 	use_len = 8;
@@ -212,6 +233,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 		}
 		if (alloc_agent(bev, ag_agent) != true)
 		{
+			// 此时未托管
 			slog_error("alloc_agent error");
 			goto end;
 		}
@@ -239,16 +261,17 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 		// 已准备好
 		if (join_tunnel_client(bev, index) != true)
 		{
+			// 此时未托管
 			slog_error("join_tunnel_client error");
 			goto end;
 		}
 	}
 
-	// remove buffer
+	// 已托管remove buffer
 	if (remove_bufferevent(bev) != true)
 	{
+		// fatal
 		slog_error("remove_bufferevent error");
-		fatal = true;
 		goto end;
 	}
 
@@ -260,11 +283,9 @@ end:
 		if (close_and_remove_bufferevent(bev) != true)
 		{
 			slog_error("close_and_remove_bufferevent error");
-			fatal = true;
+			on_fail();
 		}
 	}
-	if (fatal)
-		on_fail();
 }
 
 void ipm_server::on_bufferevent_data_write(struct bufferevent* bev)
@@ -373,9 +394,38 @@ end:
 bool ipm_server::alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg)
 {
 	bool ret = false;
+	struct sockaddr_storage agent_addr;
+	unsigned int agent_addr_len = 0;
+	std::shared_ptr<ipm_server_agent> sag;
+
+	if (pkg->is_ipv6)
+	{
+		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&agent_addr;
+		memcpy(&addr_in6->sin6_addr, pkg->ip, sizeof(addr_in6->sin6_addr));
+		addr_in6->sin6_port = pkg->port;
+		agent_addr_len = sizeof(struct sockaddr_in6);
+	}
+	else
+	{
+		struct sockaddr_in* addr_in = (struct sockaddr_in*)&agent_addr;
+		memcpy(&addr_in->sin_addr, pkg->ip, sizeof(addr_in->sin_addr));
+		addr_in->sin_port = pkg->port;
+		agent_addr_len = sizeof(struct sockaddr_in);
+	}
+
+	sag = std::make_shared<ipm_server_agent>(root_event_base, this);
+	if (sag->init(agent_addr, agent_addr_len, bev) != true)
+		goto end;
+
+	msa_agent[bev] = sag;
 
 	ret = true;
 end:
+	if (ret != true)
+	{
+		if (sag && sag->is_init())
+			sag->exit();
+	}
 	return ret;
 }
 

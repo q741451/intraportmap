@@ -30,6 +30,7 @@ public:
 
 public:
 	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev);
+	virtual bool on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd);
 	virtual void on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd);
 
 public:

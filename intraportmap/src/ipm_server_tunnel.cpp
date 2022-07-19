@@ -31,6 +31,7 @@ end:
 		is_state_init = true;
 	else
 	{
+		to_bufferevent = NULL; // 挂了还给上层
 		exit();
 		reset();
 	}
@@ -93,6 +94,10 @@ bool ipm_server_tunnel::client_connected(struct bufferevent* bev)
 
 	ret = true;
 end:
+	if (ret != true)
+	{
+		client_bufferevent = NULL; // 挂了还给上层
+	}
 	return ret;
 }
 
