@@ -30,7 +30,7 @@ public:
 
 public:
 	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev);
-	virtual void on_interface_ipm_server_tunnel_fail(evutil_socket_t to_client_fd);
+	virtual void on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd);
 
 public:
 	void on_fail();
@@ -61,7 +61,7 @@ private:
 	struct evconnlistener* listener;
 	std::set<bufferevent*>	sbe_bufferevent;		// 第一步，缓存的，可以分配到tunnel或agent
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 连接+代理listen
-	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_client_fd
+	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_fd
 };
 
 #endif

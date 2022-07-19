@@ -108,11 +108,11 @@ void ipm_server::on_interface_ipm_server_agent_fail(bufferevent* bev)
 	msa_agent.erase(iter);
 }
 
-void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_client_fd)
+void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd)
 {
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
 
-	if ((iter = mst_tunnel.find(to_client_fd)) == mst_tunnel.end())
+	if ((iter = mst_tunnel.find(to_fd)) == mst_tunnel.end())
 	{
 		slog_error("mst_tunnel error");
 		on_fail();
@@ -382,6 +382,14 @@ end:
 bool ipm_server::join_tunnel_client(struct bufferevent* bev, unsigned long long index)
 {
 	bool ret = false;
+	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
+	evutil_socket_t fd = (evutil_socket_t)index;
+
+	if ((iter = mst_tunnel.find(fd)) == mst_tunnel.end())
+		goto end;
+
+	if (iter->second->client_connected(bev) != true)
+		goto end;
 
 	ret = true;
 end:
