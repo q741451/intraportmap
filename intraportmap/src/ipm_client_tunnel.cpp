@@ -7,7 +7,7 @@ void ipm_client_tunnel_from_bufferevent_data_read_callback(struct bufferevent* b
 void ipm_client_tunnel_from_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_client_tunnel_from_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
-ipm_client_tunnel::ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned int index_u) : root_event_base(base), ptr_interface(ptr_interface_p), index(index_u)
+ipm_client_tunnel::ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u) : root_event_base(base), ptr_interface(ptr_interface_p), index(index_u)
 {
 	reset();
 }
@@ -304,11 +304,14 @@ end:
 bool ipm_client_tunnel::send_penetrate(struct bufferevent* bev)
 {
 	bool ret = false;
-	size_t sz_len = 8 * sizeof(char);
+	size_t sz_len = 12 * sizeof(char);
 	char* ptr_penetrate = (char*)malloc(sz_len);
 
+	if (ptr_penetrate == NULL)
+		goto end;
+
 	memset(ptr_penetrate, 0, sz_len);
-	*(unsigned int*)ptr_penetrate = htonl(index);
+	*(unsigned long long*)ptr_penetrate = util::htonll(index);
 
 	util::set_checksum((char*)ptr_penetrate, sz_len);
 	if (bufferevent_write(bev, ptr_penetrate, sz_len) != 0)

@@ -77,7 +77,7 @@ bool ipm_client::is_init()
 bool ipm_client::exit()
 {
 	bool ret = false;
-	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
+	std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
 	client_exit();
 
@@ -114,9 +114,9 @@ void ipm_client::reset()
 	client_reset();
 }
 
-void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned int index)
+void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned long long index)
 {
-	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
+	std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
 	if ((iter_tunnel = mst_tunnel.find(index)) == mst_tunnel.end())
 	{
@@ -184,7 +184,7 @@ void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		slog_info("client_connect_to_server %s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str());
 		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
-		server_addr_len = rp->ai_addrlen;
+		server_addr_len = (unsigned int)rp->ai_addrlen;
 		if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)
 		{
 			on_fail();
@@ -205,60 +205,43 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 {
 	struct evbuffer* input = bufferevent_get_input(bev);
 	size_t length = evbuffer_get_length(input);
+	size_t use_len = 0;
 	std::string s_data;
 	int bytes_copied = 0;
-	int ret_val = -1;
+	unsigned long long ret_val = 0;
 	bool ret = false;
-
-	if (length < 8)
-	{
-		ret = true;
-		goto end;
-	}
-
-	s_data.resize(8);
-
-	if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), 8)) != 8)
-	{
-		slog_error("evbuffer_remove error");
-		goto end;
-	}
 
 	// 判断是否成功
 	switch (client_state)
 	{
-	case ipm_client::CLIENT_STATE::SENDING_ALLOC:
-		if (util::check_checksum(s_data.c_str(), 4, s_data.c_str() + 4) != true)
-		{
-			slog_error("check_checksum error");
-			goto end;
-		}
-		ret_val = ntohl(*(unsigned int*)s_data.c_str());
-		if (ret_val != 0)
-		{
-			slog_error("SENDING_ALLOC return error");
-			goto end;
-		}
-		// 成功了，等来数据
-		slog_info("SENDING_ALLOC return ok");
-		client_state = CLIENT_STATE::RUNNING;
-		break;
 	case ipm_client::CLIENT_STATE::RUNNING:
-		if (util::check_checksum(s_data.c_str(), 4, s_data.c_str() + 4) != true)
+		use_len = 12;
+		if (length < use_len)
+		{
+			ret = true;
+			goto end;
+		}
+		s_data.resize(use_len);
+		if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), use_len)) != 12)
+		{
+			slog_error("evbuffer_remove error");
+			goto end;
+		}
+		if (util::check_checksum(s_data.c_str(), use_len) != true)
 		{
 			slog_error("check_checksum error");
 			goto end;
 		}
-		ret_val = ntohl(*(unsigned int*)s_data.c_str());
+		ret_val = util::ntohll(*(unsigned long long*)s_data.c_str());
 		if (ret_val == 0)
 		{
 			slog_error("RUNNING return error == 0");
 			goto end;
 		}
-		slog_info("RUNNING alloc %d", ret_val);
+		slog_info("RUNNING alloc %lld", ret_val);
 		{
 			std::shared_ptr<ipm_client_tunnel> st_tunnel = std::make_shared<ipm_client_tunnel>(root_event_base, this, ret_val);
-			std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
+			std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
 			// 重复则覆盖掉
 			if ((iter_tunnel = mst_tunnel.find(ret_val)) != mst_tunnel.end())
@@ -295,7 +278,6 @@ end:
 void ipm_client::on_bufferevent_data_write(struct bufferevent* bev)
 {
 	// 写完了
-	// 是否要释放struct evbuffer* output = bufferevent_get_output(bev);
 }
 
 void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
@@ -339,7 +321,7 @@ void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 			on_fail();
 			return;
 		}
-		client_state = CLIENT_STATE::SENDING_ALLOC;
+		client_state = CLIENT_STATE::RUNNING;
 	}
 }
 
@@ -387,7 +369,11 @@ bool ipm_client::client_connect_to_server(const struct sockaddr* addr, int addr_
 		goto end;
 	}
 	bufferevent_setcb(server_bufferevent, ipm_client_bufferevent_data_read_callback, ipm_client_bufferevent_data_write_callback, ipm_client_bufferevent_event_callback, this);
-	bufferevent_enable(server_bufferevent, EV_READ | EV_WRITE);
+	if (bufferevent_enable(server_bufferevent, EV_READ | EV_WRITE) != 0)
+	{
+		slog_error("bufferevent_enable error");
+		goto end;
+	}
 
 	if (bufferevent_socket_connect(server_bufferevent, addr, addr_length) != 0)
 	{
@@ -413,8 +399,11 @@ bool ipm_client::send_alloc(struct bufferevent* bev)
 	bool ret = false;
 	alloc_agent_package_t* ptr_alloc_agent_package = (alloc_agent_package_t*)malloc(sizeof(alloc_agent_package_t));
 
-	memset(ptr_alloc_agent_package, 0, sizeof(ptr_alloc_agent_package));
-	ptr_alloc_agent_package->alloc_zero = htonl(0);
+	if (ptr_alloc_agent_package == NULL)
+		goto end;
+
+	memset(ptr_alloc_agent_package, 0, sizeof(alloc_agent_package_t));
+	ptr_alloc_agent_package->alloc_zero = util::htonll(0);
 	if (util::sockaddr_to_address((sockaddr*)&to_server_addr, ptr_alloc_agent_package->ip, &ptr_alloc_agent_package->port, &ptr_alloc_agent_package->is_ipv6) != true)
 	{
 		slog_error("sockaddr_to_address error");

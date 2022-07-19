@@ -6,19 +6,20 @@ class interface_ipm_server_agent
 {
 public:
 	virtual ~interface_ipm_server_agent() {}
+	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev) = 0;
 };
 
 // 服务器端的用户fd服务模块，多个，listen来访客立即建立
 class ipm_server_agent
 {
 public:
-	// 客户端主连接
-	// 服务器代理listen
+	bool init();
+	bool is_init();
+	bool exit();
+	void reset();
 
-	// listen结果，通知上层有新客户
-	// 客户端结果(读写挂)
-
-	// 不存tunnel tunnel查找需要上层
+private:
+	bool is_state_init;
 };
 
 #endif

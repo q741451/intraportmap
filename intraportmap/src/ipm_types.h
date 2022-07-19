@@ -6,7 +6,7 @@
 #endif
 typedef struct _alloc_agent_package
 {
-	unsigned int alloc_zero;
+	unsigned long long alloc_zero;
 	unsigned int is_ipv6;
 	char ip[16];
 	unsigned int port;

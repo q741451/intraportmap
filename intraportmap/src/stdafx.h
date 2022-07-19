@@ -21,6 +21,7 @@
 #include <string>
 #include <memory>
 #include <map>
+#include <set>
 
 #include <event2/event.h>
 #include <event2/listener.h>

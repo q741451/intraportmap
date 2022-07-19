@@ -70,7 +70,7 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		memcpy(&addr, rp->ai_addr, rp->ai_addrlen);
-		*addr_len = rp->ai_addrlen;
+		*addr_len = (unsigned int)rp->ai_addrlen;
 		// 只取第一个
 		break;
 	}
@@ -119,9 +119,11 @@ void util::set_checksum(char* data, size_t sz_len)
 		*(unsigned int*)(data + sz_len - 4) = htonl(0xffffffff);
 }
 
-bool util::check_checksum(const char* data, size_t sz_len, const char* cksum)
+bool util::check_checksum(const char* data, size_t sz_len)
 {
-	return ntohl(*(unsigned int*)cksum) == 0xffffffff;
+	if (sz_len < 4)
+		return false;
+	return *(unsigned int*)(data + sz_len - 4) == htonl(0xffffffff);
 }
 
 std::string util::get_ipname_from_sockaddr(struct sockaddr* res)
@@ -152,5 +154,25 @@ std::string util::get_ipname_from_sockaddr(struct sockaddr* res)
 	ret = buf_string.c_str();
 
 	return ret;
+}
+
+unsigned long long util::ntohll(unsigned long long x)
+{
+	int ret_val[2] = { 0 };
+
+	ret_val[0] = ntohl(x >> 32);
+	ret_val[1] = ntohl(((x & 0xFFFFFFFF) << 32) >> 32);
+
+	return *(unsigned long long*)ret_val;
+}
+
+unsigned long long util::htonll(unsigned long long x)
+{
+	int ret_val[2] = { 0 };
+
+	ret_val[0] = htonl(x >> 32);
+	ret_val[1] = htonl(((x & 0xFFFFFFFF) << 32) >> 32);
+
+	return *(unsigned long long*)ret_val;
 }
 

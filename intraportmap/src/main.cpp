@@ -14,7 +14,11 @@ int main(int argc, char* argv[])
 #ifdef _WIN32
 	{
 		WSADATA WSAData;
-		WSAStartup(0x101, &WSAData);
+		if (WSAStartup(0x101, &WSAData) != 0)
+		{
+			slog_error("WSAStartup error");
+			goto end;
+		}
 	}
 #endif
 

@@ -7,7 +7,7 @@ class interface_ipm_client_tunnel
 {
 public:
 	virtual ~interface_ipm_client_tunnel() {}
-	virtual void on_interface_ipm_tunnel_client_fail(unsigned int index) = 0;
+	virtual void on_interface_ipm_tunnel_client_fail(unsigned long long index) = 0;
 };
 
 class ipm_client_tunnel
@@ -26,7 +26,7 @@ public:
 		RUNNING,
 	};
 
-	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned int index_u);
+	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u);
 
 	bool init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u);
 	bool is_init();
@@ -55,7 +55,7 @@ private:
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 	// 预置的地址
-	unsigned int index;
+	unsigned long long index;
 	struct sockaddr_storage server_addr;
 	unsigned int server_addr_len;
 	struct sockaddr_storage from_server_addr;

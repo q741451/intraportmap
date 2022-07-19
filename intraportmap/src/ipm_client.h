@@ -17,7 +17,6 @@ public:
 		IDLE,
 		DNS_QUERYING,
 		SERVER_CONNECTING,
-		SENDING_ALLOC,
 		RUNNING,
 		WAITING,
 	};
@@ -32,7 +31,7 @@ public:
 	void reset();
 
 public:
-	virtual void on_interface_ipm_tunnel_client_fail(unsigned int index);
+	virtual void on_interface_ipm_tunnel_client_fail(unsigned long long index);
 
 public:
 	void on_fail();
@@ -74,7 +73,7 @@ private:
 	// 整个类的生命周期
 	struct event* timer_event;				// 定时器
 	struct evdns_base* server_evdns_base;	// 整个程序只查一个dns
-	std::map<unsigned int, std::shared_ptr<ipm_client_tunnel>> mst_tunnel;
+	std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>> mst_tunnel;
 	// 重连生命周期(client)
 	struct bufferevent* server_bufferevent;	// 连接到服务器
 };

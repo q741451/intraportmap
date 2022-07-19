@@ -26,6 +26,12 @@ bool intraportmap::init(int argc, char* argv[])
 	if (is_server)
 	{
 		slog_info("run as server");
+		sp_ipm_server = std::make_shared<ipm_server>(root_event_base, this);
+		if (sp_ipm_server->init(server_name.c_str(), server_port_name.c_str()) != true)
+		{
+			slog_error("sp_ipm_server init error");
+			goto end;
+		}
 	}
 	else
 	{
@@ -73,6 +79,12 @@ bool intraportmap::exit()
 			sp_ipm_client->exit();
 	}
 
+	if (sp_ipm_server)
+	{
+		if (sp_ipm_server->is_init())
+			sp_ipm_server->exit();
+	}
+
 	if (root_event_base)
 		event_base_free(root_event_base);
 
@@ -95,6 +107,11 @@ void intraportmap::reset()
 		sp_ipm_client->reset();
 	}
 	sp_ipm_client.reset();
+	if (sp_ipm_server)
+	{
+		sp_ipm_server->reset();
+	}
+	sp_ipm_server.reset();
 }
 
 void intraportmap::exec()
@@ -105,6 +122,12 @@ void intraportmap::exec()
 void intraportmap::on_interface_ipm_client_fail()
 {
 	slog_error("on_interface_ipm_client_fail");
+	event_base_loopbreak(root_event_base);
+}
+
+void intraportmap::on_interface_ipm_server_fail()
+{
+	slog_error("on_interface_ipm_server_fail");
 	event_base_loopbreak(root_event_base);
 }
 

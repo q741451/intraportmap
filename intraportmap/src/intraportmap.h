@@ -1,7 +1,7 @@
 #ifndef _INTRAPORTMAP_H
 #define _INTRAPORTMAP_H
 
-class intraportmap : public interface_ipm_client
+class intraportmap : public interface_ipm_client, public interface_ipm_server
 {
 public:
 	intraportmap();
@@ -15,6 +15,7 @@ public:
 
 public:
 	virtual void on_interface_ipm_client_fail();
+	virtual void on_interface_ipm_server_fail();
 
 public: // libevent过来的事件
 	// 中断
@@ -30,6 +31,7 @@ private:
 	struct event* signal_event;
 	struct event_base* root_event_base;
 	std::shared_ptr<ipm_client> sp_ipm_client;
+	std::shared_ptr<ipm_server> sp_ipm_server;
 	unsigned int client_reconn_time;
 	std::string server_name;
 	std::string server_port_name;
