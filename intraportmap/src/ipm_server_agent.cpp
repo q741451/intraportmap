@@ -25,11 +25,6 @@ bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int
 		slog_error("bufferevent_enable error");
 		goto end;
 	}
-	if (bufferevent_disable(client_bufferevent, EV_READ) != 0)
-	{
-		slog_error("bufferevent_disable error");
-		goto end;
-	}
 
 	agent_addr = agent_addr_ss;
 	agent_addr_len = agent_addr_len_u;
