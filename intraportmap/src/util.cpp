@@ -94,14 +94,14 @@ bool util::sockaddr_to_address(struct sockaddr* ai_addr, char* net_ip, unsigned 
 		struct sockaddr_in* addr_in = (struct sockaddr_in*)ai_addr;
 		memcpy(net_ip, &addr_in->sin_addr, sizeof(addr_in->sin_addr));
 		*net_is_ipv6 = htonl(0);
-		*net_port = htonl(addr_in->sin_port);
+		*net_port = htonl((unsigned int)ntohs(addr_in->sin_port));
 		break;
 	}
 	case AF_INET6: {
 		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)ai_addr;
 		memcpy(net_ip, &addr_in6->sin6_addr, sizeof(addr_in6->sin6_addr));
 		*net_is_ipv6 = htonl(1);
-		*net_port = htonl(addr_in6->sin6_port);
+		*net_port = htonl((unsigned int)ntohs(addr_in6->sin6_port));
 		break;
 	}
 	default:

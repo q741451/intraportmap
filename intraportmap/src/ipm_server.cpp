@@ -401,15 +401,19 @@ bool ipm_server::alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg
 	if (pkg->is_ipv6)
 	{
 		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&agent_addr;
+		memset(addr_in6, 0, sizeof(struct sockaddr_in6));
 		memcpy(&addr_in6->sin6_addr, pkg->ip, sizeof(addr_in6->sin6_addr));
-		addr_in6->sin6_port = pkg->port;
+		addr_in6->sin6_family = AF_INET6;
+		addr_in6->sin6_port = htons((unsigned short)ntohl(pkg->port));
 		agent_addr_len = sizeof(struct sockaddr_in6);
 	}
 	else
 	{
 		struct sockaddr_in* addr_in = (struct sockaddr_in*)&agent_addr;
+		memset(addr_in, 0, sizeof(struct sockaddr_in));
 		memcpy(&addr_in->sin_addr, pkg->ip, sizeof(addr_in->sin_addr));
-		addr_in->sin_port = pkg->port;
+		addr_in->sin_family = AF_INET;
+		addr_in->sin_port = htons((unsigned short)ntohl(pkg->port));
 		agent_addr_len = sizeof(struct sockaddr_in);
 	}
 

@@ -314,7 +314,7 @@ void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		// ·¢ËÍ
-		slog_info("BEV_EVENT_CONNECTED, now sending alloc...");
+		slog_info("BEV_EVENT_CONNECTED, now sending alloc");
 		if (send_alloc(bev) != true)
 		{
 			slog_error("send_alloc error");
@@ -397,20 +397,21 @@ end:
 bool ipm_client::send_alloc(struct bufferevent* bev)
 {
 	bool ret = false;
-	alloc_agent_package_t* ptr_alloc_agent_package = (alloc_agent_package_t*)malloc(sizeof(alloc_agent_package_t));
+	size_t buf_len = sizeof(alloc_agent_package_t);
+	alloc_agent_package_t* ptr_alloc_agent_package = (alloc_agent_package_t*)malloc(buf_len);
 
 	if (ptr_alloc_agent_package == NULL)
 		goto end;
 
-	memset(ptr_alloc_agent_package, 0, sizeof(alloc_agent_package_t));
+	memset(ptr_alloc_agent_package, 0, buf_len);
 	ptr_alloc_agent_package->alloc_zero = util::htonll(0);
 	if (util::sockaddr_to_address((sockaddr*)&to_server_addr, ptr_alloc_agent_package->ip, &ptr_alloc_agent_package->port, &ptr_alloc_agent_package->is_ipv6) != true)
 	{
 		slog_error("sockaddr_to_address error");
 		goto end;
 	}
-	util::set_checksum((char*)ptr_alloc_agent_package, sizeof(ptr_alloc_agent_package));
-	if (bufferevent_write(bev, ptr_alloc_agent_package, sizeof(ptr_alloc_agent_package)) != 0)
+	util::set_checksum((char*)ptr_alloc_agent_package, buf_len);
+	if (bufferevent_write(bev, ptr_alloc_agent_package, buf_len) != 0)
 	{
 		slog_error("send_alloc error");
 		goto end;
