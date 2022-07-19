@@ -121,6 +121,7 @@ bool ipm_server::on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, b
 
 	mst_tunnel[to_fd] = st_tunnel;
 
+	ret = true;
 end:
 	if (ret != true)
 	{

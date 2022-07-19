@@ -249,7 +249,11 @@ bool ipm_client_tunnel::connect_to_server()
 		goto end;
 	}
 	bufferevent_setcb(server_bufferevent, ipm_client_tunnel_server_bufferevent_data_read_callback, ipm_client_tunnel_server_bufferevent_data_write_callback, ipm_client_tunnel_server_bufferevent_event_callback, this);
-	bufferevent_enable(server_bufferevent, EV_READ | EV_WRITE);
+	if (bufferevent_enable(server_bufferevent, EV_READ | EV_WRITE) != 0)
+	{
+		slog_error("bufferevent_enable error");
+		goto end;
+	}
 
 	if (bufferevent_socket_connect(server_bufferevent, (struct sockaddr*)&server_addr, server_addr_len) != 0)
 	{
@@ -280,7 +284,11 @@ bool ipm_client_tunnel::connect_to_from()
 		goto end;
 	}
 	bufferevent_setcb(from_bufferevent, ipm_client_tunnel_from_bufferevent_data_read_callback, ipm_client_tunnel_from_bufferevent_data_write_callback, ipm_client_tunnel_from_bufferevent_event_callback, this);
-	bufferevent_enable(from_bufferevent, EV_READ | EV_WRITE);
+	if (bufferevent_enable(from_bufferevent, EV_READ | EV_WRITE) != 0)
+	{
+		slog_error("bufferevent_enable error");
+		goto end;
+	}
 
 	if (bufferevent_socket_connect(from_bufferevent, (struct sockaddr*)&from_server_addr, from_server_addr_len) != 0)
 	{

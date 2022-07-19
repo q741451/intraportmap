@@ -17,10 +17,10 @@ bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int
 
 	client_bufferevent = client_bev;
 
-	bufferevent_setcb(client_bufferevent, NULL, ipm_server_agent_client_bufferevent_data_write_callback, ipm_server_agent_client_bufferevent_event_callback, this);
+	bufferevent_setcb(client_bufferevent, ipm_server_agent_client_bufferevent_data_read_callback, ipm_server_agent_client_bufferevent_data_write_callback, ipm_server_agent_client_bufferevent_event_callback, this);
 
 	// 只写不读
-	if (bufferevent_enable(client_bufferevent, EV_WRITE) != 0)
+	if (bufferevent_enable(client_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_error("bufferevent_enable error");
 		goto end;
@@ -86,7 +86,8 @@ void ipm_server_agent::on_fail()
 
 void ipm_server_agent::on_client_bufferevent_data_read_callback(struct bufferevent* bev)
 {
-
+	// 一读就挂
+	on_fail();
 }
 
 void ipm_server_agent::on_client_bufferevent_data_write_callback(struct bufferevent* bev)
