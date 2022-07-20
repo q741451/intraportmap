@@ -73,7 +73,6 @@ bool ipm_client_tunnel::exit()
 
 void ipm_client_tunnel::reset()
 {
-	index = 0;
 	server_addr_len = 0;
 	from_server_addr_len = 0;
 	from_state = FROM_STATE::IDLE;

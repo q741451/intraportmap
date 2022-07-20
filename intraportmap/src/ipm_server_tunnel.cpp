@@ -18,7 +18,7 @@ bool ipm_server_tunnel::init(struct bufferevent* to_bev)
 
 	to_bufferevent = to_bev;
 
-	bufferevent_setcb(to_bufferevent, ipm_client_tunnel_client_bufferevent_data_read_callback, ipm_client_tunnel_client_bufferevent_data_write_callback, ipm_client_tunnel_client_bufferevent_event_callback, this);
+	bufferevent_setcb(to_bufferevent, ipm_client_tunnel_to_bufferevent_data_read_callback, ipm_client_tunnel_to_bufferevent_data_write_callback, ipm_client_tunnel_to_bufferevent_event_callback, this);
 	if (bufferevent_enable(to_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_error("bufferevent_enable error");
@@ -73,7 +73,7 @@ bool ipm_server_tunnel::client_connected(struct bufferevent* bev)
 
 	client_bufferevent = bev;
 
-	bufferevent_setcb(client_bufferevent, ipm_client_tunnel_to_bufferevent_data_read_callback, ipm_client_tunnel_to_bufferevent_data_write_callback, ipm_client_tunnel_to_bufferevent_event_callback, this);
+	bufferevent_setcb(client_bufferevent, ipm_client_tunnel_client_bufferevent_data_read_callback, ipm_client_tunnel_client_bufferevent_data_write_callback, ipm_client_tunnel_client_bufferevent_event_callback, this);
 	if (bufferevent_enable(client_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_error("bufferevent_enable error");
