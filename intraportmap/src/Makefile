@@ -22,7 +22,7 @@ CXXFLAGS   += -I$(SRC_DIR)
 #CPPFLAGS    = -D_DEBUG
 CPPFLAGS    = -O2
  
-LDFLAGS     = -L$(SRC_DIR) -levent
+LDFLAGS     = -L$(SRC_DIR) -static -lgcc_pic -levent
  
 LIBS        = 
 # END ----------------------------------
