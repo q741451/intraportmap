@@ -83,7 +83,7 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 	ret = true;
 end:
 	if (result)
-		freeaddrinfo(result);
+		evutil_freeaddrinfo(result);
 	return ret;
 }
 
