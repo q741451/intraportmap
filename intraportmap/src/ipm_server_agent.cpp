@@ -29,6 +29,8 @@ bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int
 	agent_addr = agent_addr_ss;
 	agent_addr_len = agent_addr_len_u;
 
+	slog_info("ipm_server_agent %p start at %s:%s", client_bev, util::get_ipname_from_sockaddr((struct sockaddr*)&agent_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&agent_addr).c_str());
+
 	if (start_listener((struct sockaddr*)&agent_addr, agent_addr_len) != true)
 	{
 		slog_error("start_listener error");
@@ -63,6 +65,9 @@ bool ipm_server_agent::exit()
 	if (listener)
 		evconnlistener_free(listener);
 
+	if (listener6)
+		evconnlistener_free(listener6);
+
 	is_state_init = false;
 	ret = true;
 //end:
@@ -74,6 +79,7 @@ void ipm_server_agent::reset()
 	is_state_init = false;
 	agent_addr_len = 0;
 	listener = NULL;
+	listener6 = NULL;
 	client_bufferevent = NULL;
 }
 
@@ -195,8 +201,35 @@ end:
 bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_length)
 {
 	bool ret = false;
+	struct sockaddr_in6 zero_in6;
 
-	if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+	if (addr->sa_family == AF_INET6)
+	{
+		if ((listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+			goto end;
+
+		memset(&zero_in6, 0, sizeof(zero_in6));
+
+		if (memcmp(&((struct sockaddr_in6*)addr)->sin6_addr, &zero_in6.sin6_addr, sizeof(zero_in6.sin6_addr)) == 0)
+		{
+			// 监听所有，需要同时监听ipv4
+
+			struct sockaddr_in addr_in4_all;
+			memset(&addr_in4_all, 0, sizeof(struct sockaddr_in));
+			addr_in4_all.sin_family = AF_INET;
+			addr_in4_all.sin_addr.s_addr = htonl(INADDR_ANY);
+			addr_in4_all.sin_port = ((struct sockaddr_in6*)addr)->sin6_port;
+
+			if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all))) == NULL)
+				goto end;
+		}
+	}
+	else if (addr->sa_family == AF_INET)
+	{
+		if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+			goto end;
+	}
+	else
 		goto end;
 
 	ret = true;

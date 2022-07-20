@@ -11,8 +11,11 @@ public:
 	static void set_checksum(char* data, size_t sz_len);
 	static bool check_checksum(const char* data, size_t sz_len);
 	static std::string get_ipname_from_sockaddr(struct sockaddr* addr_in);
+	static std::string get_portstr_from_sockaddr(struct sockaddr* addr_in);
+	static unsigned short get_port_from_sockaddr(struct sockaddr* addr_in);
 	static unsigned long long ntohll(unsigned long long x);
 	static unsigned long long htonll(unsigned long long x);
+	static std::string string_format(const char* fmt_str, ...);
 };
 
 #endif

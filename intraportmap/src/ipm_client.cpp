@@ -41,6 +41,14 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 		goto end;
 	}
 
+#ifdef WIN32
+	if (evdns_base_config_windows_nameservers(server_evdns_base) != 0)
+	{
+		slog_error("evdns_base_config_windows_nameservers error");
+		goto end;
+	}
+#endif
+
 	if ((timer_event = evtimer_new(root_event_base, ipm_client_timer_event_callback, this)) == NULL)
 	{
 		slog_error("evtimer_new error");
@@ -164,27 +172,14 @@ void ipm_client::on_fatal_fail()
 
 void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 {
-	struct evutil_addrinfo* rp, * ipv4v6bindall;
+	struct evutil_addrinfo* rp;
 
 	slog_info("on_evdns_getaddrinfo");
 
 	rp = result;
 
-	if (server_name.size() == NULL) {
-		ipv4v6bindall = result;
-
-		/* Loop over all address infos found until a IPV6 address is found. */
-		while (ipv4v6bindall) {
-			if (ipv4v6bindall->ai_family == AF_INET6) {
-				rp = ipv4v6bindall; /* Take first IPV6 address available */
-				break;
-			}
-			ipv4v6bindall = ipv4v6bindall->ai_next; /* Get next address info, if any */
-		}
-	}
-
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
-		slog_info("client_connect_to_server %s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str());
+		slog_info("client_connect_to_server %s:%s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str(), util::get_portstr_from_sockaddr(rp->ai_addr).c_str());
 		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
 		server_addr_len = (unsigned int)rp->ai_addrlen;
 		if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)

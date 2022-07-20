@@ -49,6 +49,7 @@ private:
 	struct event_base* root_event_base;		// 来自外部
 	// 整个类的生命周期
 	struct evconnlistener* listener;
+	struct evconnlistener* listener6;
 	// 保留的连接，外部传入，本类释放
 	struct bufferevent* client_bufferevent;	// 客户端
 };

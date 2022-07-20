@@ -60,6 +60,7 @@ private:
 	struct event_base* root_event_base;		// 来自外部
 	// 整个类的生命周期
 	struct evconnlistener* listener;
+	struct evconnlistener* listener6;
 	std::set<bufferevent*>	sbe_bufferevent;		// 第一步，缓存的，可以分配到tunnel或agent
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 连接+代理listen
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_fd

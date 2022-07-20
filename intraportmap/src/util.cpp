@@ -22,15 +22,14 @@ void util::string_split(const char* str, const char* splits, std::vector<std::st
 bool util::split_addr_string(const char* addrfull, std::string& addrstr, std::string& portstr)
 {
 	bool ret = false;
-	std::vector<std::string> strs;
+	std::string addrfull_s = addrfull;
+	size_t last_mm = 0;
 
-	string_split(addrfull, ":", strs, false);
-
-	if (strs.size() != 2)
+	if ((last_mm = addrfull_s.rfind(':')) == std::string::npos)
 		goto end;
 
-	addrstr = strs[0];
-	portstr = strs[1];
+	addrstr = addrfull_s.substr(0, last_mm);
+	portstr = addrfull_s.substr(last_mm + 1);
 
 	ret = true;
 end:
@@ -42,7 +41,7 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 	bool ret = false;
 	struct evutil_addrinfo hints;
 	struct addrinfo* result = NULL;
-	struct addrinfo* rp, * ipv4v6bindall;
+	struct addrinfo* rp;
 
 	memset(&hints, 0, sizeof(struct evutil_addrinfo));
 	hints.ai_family = AF_UNSPEC;               /* Return IPv4 and IPv6 choices */
@@ -55,24 +54,23 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 
 	rp = result;
 
-	if (host_name == NULL || strlen(host_name) == 0) {
-		ipv4v6bindall = result;
-
-		/* Loop over all address infos found until a IPV6 address is found. */
-		while (ipv4v6bindall) {
-			if (ipv4v6bindall->ai_family == AF_INET6) {
-				rp = ipv4v6bindall; /* Take first IPV6 address available */
-				break;
-			}
-			ipv4v6bindall = ipv4v6bindall->ai_next; /* Get next address info, if any */
-		}
-	}
-
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		memcpy(&addr, rp->ai_addr, rp->ai_addrlen);
 		*addr_len = (unsigned int)rp->ai_addrlen;
 		// 只取第一个
 		break;
+	}
+
+	if (host_name == NULL || strlen(host_name) == 0)
+	{
+		// 地址取空表示同时监听ipv6，覆盖默认设置
+
+		struct sockaddr_in6 addr_in6_all;
+		memset(&addr_in6_all, 0, sizeof(addr_in6_all));
+		addr_in6_all.sin6_family = AF_INET6;
+		addr_in6_all.sin6_port = htons(util::get_port_from_sockaddr((struct sockaddr*)&addr));
+		memcpy(&addr, &addr_in6_all, sizeof(addr_in6_all));
+		*addr_len = sizeof(addr_in6_all);
 	}
 
 	if (addr.ss_family != AF_INET6 && addr.ss_family != AF_INET)
@@ -156,6 +154,28 @@ std::string util::get_ipname_from_sockaddr(struct sockaddr* res)
 	return ret;
 }
 
+std::string util::get_portstr_from_sockaddr(struct sockaddr* res)
+{
+	return util::string_format("%u", (unsigned int)get_port_from_sockaddr(res));
+}
+
+unsigned short util::get_port_from_sockaddr(struct sockaddr* res)
+{
+	switch (res->sa_family) {
+	case AF_INET: {
+		struct sockaddr_in* addr_in = (struct sockaddr_in*)res;
+		return ntohs(addr_in->sin_port);
+		break;
+	}
+	case AF_INET6: {
+		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)res;
+		return ntohs(addr_in6->sin6_port);
+	}
+	default:
+		return 0;
+	}
+}
+
 unsigned long long util::ntohll(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
@@ -174,5 +194,23 @@ unsigned long long util::htonll(unsigned long long x)
 	ret_val[1] = htonl(((x & 0xFFFFFFFF) << 32) >> 32);
 
 	return *(unsigned long long*)ret_val;
+}
+
+std::string util::string_format(const char* fmt_str, ...) {
+	int final_n, n = ((int)strlen(fmt_str)) * 2; /* Reserve two times as much as the length of the fmt_str */
+	std::unique_ptr<char[]> formatted;
+	va_list ap;
+	while (1) {
+		formatted.reset(new char[n]); /* Wrap the plain char array into the unique_ptr */
+		strcpy_s(&formatted[0], n, fmt_str);
+		va_start(ap, fmt_str);
+		final_n = vsnprintf(&formatted[0], n, fmt_str, ap);
+		va_end(ap);
+		if (final_n < 0 || final_n >= n)
+			n += abs(final_n - n + 1);
+		else
+			break;
+	}
+	return std::string(formatted.get());
 }
 
