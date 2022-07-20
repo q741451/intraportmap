@@ -179,7 +179,7 @@ void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 	rp = result;
 
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
-		slog_info("client_connect_to_server %s:%s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str(), util::get_portstr_from_sockaddr(rp->ai_addr).c_str());
+		slog_info("client_connect_to_server [%s]:%s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str(), util::get_portstr_from_sockaddr(rp->ai_addr).c_str());
 		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
 		server_addr_len = (unsigned int)rp->ai_addrlen;
 		if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)

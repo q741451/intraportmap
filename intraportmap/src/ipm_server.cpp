@@ -24,7 +24,7 @@ bool ipm_server::init(const char* server_name_c, const char* server_port_name_c)
 		goto end;
 	}
 
-	slog_info("ipm_server start at %s:%s", util::get_ipname_from_sockaddr((struct sockaddr*)&server_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&server_addr).c_str());
+	slog_info("ipm_server start at [%s]:%s", util::get_ipname_from_sockaddr((struct sockaddr*)&server_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&server_addr).c_str());
 
 	if (start_listener((struct sockaddr*)&server_addr, server_addr_len) != true)
 	{
@@ -393,8 +393,7 @@ bool ipm_server::start_listener(const struct sockaddr* addr, int addr_length)
 
 			if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all))) == NULL)
 			{
-				slog_error("dual-stack ipv4 listen error");
-				goto end;
+				slog_warn("dual-stack ipv4 listen error");
 			}
 
 		}

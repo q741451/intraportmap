@@ -29,7 +29,7 @@ bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int
 	agent_addr = agent_addr_ss;
 	agent_addr_len = agent_addr_len_u;
 
-	slog_info("ipm_server_agent %p start at %s:%s", client_bev, util::get_ipname_from_sockaddr((struct sockaddr*)&agent_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&agent_addr).c_str());
+	slog_info("ipm_server_agent %p start at [%s]:%s", client_bev, util::get_ipname_from_sockaddr((struct sockaddr*)&agent_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&agent_addr).c_str());
 
 	if (start_listener((struct sockaddr*)&agent_addr, agent_addr_len) != true)
 	{
@@ -229,8 +229,7 @@ bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_leng
 
 			if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all))) == NULL)
 			{
-				slog_error("dual-stack ipv4 listen error");
-				goto end;
+				slog_warn("dual-stack ipv4 listen error");
 			}
 		}
 	}
