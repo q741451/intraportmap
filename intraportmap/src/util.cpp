@@ -137,13 +137,13 @@ std::string util::get_ipname_from_sockaddr(struct sockaddr* res)
 	case AF_INET: {
 		struct sockaddr_in* addr_in = (struct sockaddr_in*)res;
 
-		inet_ntop(AF_INET, &(addr_in->sin_addr), (char*)buf_string.c_str(), INET_ADDRSTRLEN);
+		evutil_inet_ntop(AF_INET, &(addr_in->sin_addr), (char*)buf_string.c_str(), INET_ADDRSTRLEN);
 		break;
 	}
 	case AF_INET6: {
 		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)res;
 
-		inet_ntop(AF_INET6, &(addr_in6->sin6_addr), (char*)buf_string.c_str(), INET6_ADDRSTRLEN);
+		evutil_inet_ntop(AF_INET6, &(addr_in6->sin6_addr), (char*)buf_string.c_str(), INET6_ADDRSTRLEN);
 		break;
 	}
 	default:
