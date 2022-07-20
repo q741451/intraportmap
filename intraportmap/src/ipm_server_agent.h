@@ -14,7 +14,7 @@ public:
 class ipm_server_agent
 {
 public:
-	enum class SERVER_STATE : UINT32
+	enum class SERVER_STATE : unsigned int
 	{
 		IDLE,
 		STARTING,

@@ -13,7 +13,7 @@ public:
 class ipm_server : public interface_ipm_server_agent, public interface_ipm_server_tunnel
 {
 public:
-	enum class SERVER_STATE : UINT32
+	enum class SERVER_STATE : unsigned int
 	{
 		IDLE,
 		STARTING,

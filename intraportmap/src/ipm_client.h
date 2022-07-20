@@ -12,7 +12,7 @@ public:
 class ipm_client : public interface_ipm_client_tunnel
 {
 public:
-	enum class CLIENT_STATE : UINT32
+	enum class CLIENT_STATE : unsigned int
 	{
 		IDLE,
 		DNS_QUERYING,

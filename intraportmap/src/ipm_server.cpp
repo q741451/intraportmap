@@ -6,7 +6,7 @@ void ipm_server_bufferevent_data_read_callback(struct bufferevent* bev, void* ct
 void ipm_server_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_server_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
-ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p) : root_event_base(base), ptr_interface(ptr_interface_p)
+ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p) : ptr_interface(ptr_interface_p), root_event_base(base)
 {
 	reset();
 }
@@ -89,7 +89,7 @@ bool ipm_server::exit()
 
 void ipm_server::reset()
 {
-	bool is_state_init = false;
+	is_state_init = false;
 	server_state = SERVER_STATE::IDLE;
 	server_addr_len = 0;
 	sbe_bufferevent.clear();
@@ -232,7 +232,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 		}
 		// 已准备好
 		ag_agent = (alloc_agent_package_t*)malloc(use_len);
-		if ((bytes_copied = evbuffer_remove(input, (char*)ag_agent, use_len)) != use_len)
+		if ((bytes_copied = evbuffer_remove(input, (char*)ag_agent, use_len)) != (int)use_len)
 		{
 			slog_error("evbuffer_remove error");
 			goto end;
@@ -260,7 +260,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			goto end;
 		}
 		s_data.resize(use_len);
-		if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), use_len)) != use_len)
+		if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), use_len)) != (int)use_len)
 		{
 			slog_error("evbuffer_remove error");
 			goto end;
@@ -368,7 +368,10 @@ bool ipm_server::start_listener(const struct sockaddr* addr, int addr_length)
 
 	if (addr->sa_family == AF_INET6)
 	{
-		if ((listener6 = evconnlistener_new_bind(root_event_base, ipm_server_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL &&
+		if (
+#ifdef LEV_OPT_BIND_IPV6ONLY
+			(listener6 = evconnlistener_new_bind(root_event_base, ipm_server_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL &&
+#endif
 			(listener6 = evconnlistener_new_bind(root_event_base, ipm_server_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
 		{
 			slog_error("ipv6 listen error");

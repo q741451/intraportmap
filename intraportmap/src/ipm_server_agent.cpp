@@ -6,7 +6,7 @@ void ipm_server_agent_client_bufferevent_event_callback(struct bufferevent* bev,
 
 void ipm_server_agent_listener_callback(struct evconnlistener* listener, evutil_socket_t fd, struct sockaddr* sa, int socklen, void* user_data);
 
-ipm_server_agent::ipm_server_agent(struct event_base* base, interface_ipm_server_agent* ptr_interface_p) : root_event_base(base), ptr_interface(ptr_interface_p)
+ipm_server_agent::ipm_server_agent(struct event_base* base, interface_ipm_server_agent* ptr_interface_p) :  ptr_interface(ptr_interface_p), root_event_base(base)
 {
 	reset();
 }
@@ -205,7 +205,10 @@ bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_leng
 
 	if (addr->sa_family == AF_INET6)
 	{
-		if ((listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL &&
+		if (
+#ifdef LEV_OPT_BIND_IPV6ONLY
+			(listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL &&
+#endif
 			(listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
 		{
 			slog_error("ipv6 listen error");

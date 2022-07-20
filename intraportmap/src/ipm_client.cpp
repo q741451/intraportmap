@@ -6,7 +6,7 @@ void ipm_client_bufferevent_data_write_callback(struct bufferevent* bev, void* c
 void ipm_client_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 void ipm_client_timer_event_callback(evutil_socket_t sig, short events, void* user_data);
 
-ipm_client::ipm_client(struct event_base* base, interface_ipm_client* ptr_interface_p) : root_event_base(base), ptr_interface(ptr_interface_p)
+ipm_client::ipm_client(struct event_base* base, interface_ipm_client* ptr_interface_p) :  ptr_interface(ptr_interface_p), root_event_base(base)
 {
 	reset();
 }

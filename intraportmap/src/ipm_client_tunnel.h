@@ -13,13 +13,13 @@ public:
 class ipm_client_tunnel
 {
 public:
-	enum class FROM_STATE : UINT32
+	enum class FROM_STATE : unsigned int
 	{
 		IDLE,
 		CONNECTING,
 		RUNNING,
 	};
-	enum class SERVER_STATE : UINT32
+	enum class SERVER_STATE : unsigned int
 	{
 		IDLE,
 		CONNECTING,

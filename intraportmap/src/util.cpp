@@ -183,21 +183,27 @@ unsigned short util::get_port_from_sockaddr(struct sockaddr* res)
 unsigned long long util::ntohll(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
+	unsigned long long ret_val_64 = 0;
 
 	ret_val[0] = ntohl(x >> 32);
 	ret_val[1] = ntohl(((x & 0xFFFFFFFF) << 32) >> 32);
 
-	return *(unsigned long long*)ret_val;
+	memcpy(&ret_val_64, ret_val, sizeof(unsigned long long));
+
+	return ret_val_64;
 }
 
 unsigned long long util::htonll(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
+	unsigned long long ret_val_64 = 0;
 
 	ret_val[0] = htonl(x >> 32);
 	ret_val[1] = htonl(((x & 0xFFFFFFFF) << 32) >> 32);
 
-	return *(unsigned long long*)ret_val;
+	memcpy(&ret_val_64, ret_val, sizeof(unsigned long long));
+
+	return ret_val_64;
 }
 
 std::string util::string_format(const char* fmt_str, ...) {
@@ -206,7 +212,7 @@ std::string util::string_format(const char* fmt_str, ...) {
 	va_list ap;
 	while (1) {
 		formatted.reset(new char[n]); /* Wrap the plain char array into the unique_ptr */
-		strcpy_s(&formatted[0], n, fmt_str);
+		strcpy(&formatted[0], fmt_str);
 		va_start(ap, fmt_str);
 		final_n = vsnprintf(&formatted[0], n, fmt_str, ap);
 		va_end(ap);

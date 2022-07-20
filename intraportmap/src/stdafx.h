@@ -11,13 +11,16 @@
 #include "getopt/getopt.h"
 #else
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #endif
 
 #define VERBOSE_DEBUG 0
 
 #include <signal.h>
+#include <memory.h>
 
 #include <vector>
 #include <string>

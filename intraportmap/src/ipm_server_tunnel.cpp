@@ -7,7 +7,7 @@ void ipm_client_tunnel_to_bufferevent_data_read_callback(struct bufferevent* bev
 void ipm_client_tunnel_to_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_client_tunnel_to_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
-ipm_server_tunnel::ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, evutil_socket_t to_fd_u) : root_event_base(base), ptr_interface(ptr_interface_p), to_fd(to_fd_u)
+ipm_server_tunnel::ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, evutil_socket_t to_fd_u) : ptr_interface(ptr_interface_p), to_fd(to_fd_u), root_event_base(base)
 {
 	reset();
 }
