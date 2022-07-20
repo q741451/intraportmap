@@ -205,8 +205,12 @@ bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_leng
 
 	if (addr->sa_family == AF_INET6)
 	{
-		if ((listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+		if ((listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_BIND_IPV6ONLY, -1, (struct sockaddr*)addr, addr_length)) == NULL &&
+			(listener6 = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+		{
+			slog_error("ipv6 listen error");
 			goto end;
+		}
 
 		memset(&zero_in6, 0, sizeof(zero_in6));
 
@@ -221,16 +225,25 @@ bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_leng
 			addr_in4_all.sin_port = ((struct sockaddr_in6*)addr)->sin6_port;
 
 			if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all))) == NULL)
+			{
+				slog_error("dual-stack ipv4 listen error");
 				goto end;
+			}
 		}
 	}
 	else if (addr->sa_family == AF_INET)
 	{
 		if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_agent_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)addr, addr_length)) == NULL)
+		{
+			slog_error("ipv4 listen error");
 			goto end;
+		}
 	}
 	else
+	{
+		slog_error("unknown sa_family listen error");
 		goto end;
+	}
 
 	ret = true;
 end:

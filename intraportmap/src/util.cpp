@@ -53,7 +53,7 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* For wildcard IP address */
 	hints.ai_protocol = IPPROTO_TCP;
 
-	if (getaddrinfo(host_name, port_name, &hints, &result) != 0)
+	if (evutil_getaddrinfo(host_name, port_name, &hints, &result) != 0)
 		goto end;
 
 	rp = result;
