@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #endif
 
+#define VERBOSE_DEBUG 0
+
 #include <signal.h>
 
 #include <vector>

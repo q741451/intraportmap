@@ -118,6 +118,8 @@ void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned long long index)
 {
 	std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
+	slog_info("tunnel client fail %llu", index);
+
 	if ((iter_tunnel = mst_tunnel.find(index)) == mst_tunnel.end())
 	{
 		slog_error("unknown tunnel index");
@@ -133,7 +135,7 @@ void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned long long index)
 
 void ipm_client::on_fail()
 {
-	slog_info("on_fail");
+	slog_info("client on_fail");
 	// 清理全部临时变量
 	if (client_exit() != true)
 	{
@@ -155,7 +157,7 @@ void ipm_client::on_fail()
 
 void ipm_client::on_fatal_fail()
 {
-	slog_info("on_fatal_fail");
+	slog_info("client on_fatal_fail");
 	if (ptr_interface)
 		ptr_interface->on_interface_ipm_client_fail();
 }
@@ -204,7 +206,7 @@ end:
 void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 {
 	struct evbuffer* input = bufferevent_get_input(bev);
-	size_t length = evbuffer_get_length(input);
+	size_t length = 0;
 	size_t use_len = 0;
 	std::string s_data;
 	int bytes_copied = 0;
@@ -216,51 +218,49 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 	{
 	case ipm_client::CLIENT_STATE::RUNNING:
 		use_len = 12;
-		if (length < use_len)
-		{
-			ret = true;
-			goto end;
-		}
 		s_data.resize(use_len);
-		if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), use_len)) != 12)
+		while ((length = evbuffer_get_length(input)) >= use_len)
 		{
-			slog_error("evbuffer_remove error");
-			goto end;
-		}
-		if (util::check_checksum(s_data.c_str(), use_len) != true)
-		{
-			slog_error("check_checksum error");
-			goto end;
-		}
-		ret_val = util::ntohll(*(unsigned long long*)s_data.c_str());
-		if (ret_val == 0)
-		{
-			slog_error("RUNNING return error == 0");
-			goto end;
-		}
-		slog_info("RUNNING alloc %lld", ret_val);
-		{
-			std::shared_ptr<ipm_client_tunnel> st_tunnel = std::make_shared<ipm_client_tunnel>(root_event_base, this, ret_val);
-			std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
-
-			// 重复则覆盖掉
-			if ((iter_tunnel = mst_tunnel.find(ret_val)) != mst_tunnel.end())
+			if ((bytes_copied = evbuffer_remove(input, (char*)s_data.c_str(), use_len)) != 12)
 			{
-				if (iter_tunnel->second->is_init())
-					iter_tunnel->second->exit();
-				mst_tunnel.erase(iter_tunnel);
-			}
-
-			// 允许启动失败
-			if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len) != true)
-			{
-				slog_error("st_tunnel->init error");
-				ret = true;
+				slog_error("evbuffer_remove error");
 				goto end;
 			}
+			if (util::check_checksum(s_data.c_str(), use_len) != true)
+			{
+				slog_error("check_checksum error");
+				goto end;
+			}
+			ret_val = util::ntohll(*(unsigned long long*)s_data.c_str());
+			if (ret_val == 0)
+			{
+				slog_error("RUNNING return error == 0");
+				goto end;
+			}
+			slog_info("RUNNING alloc %llu", ret_val);
+			{
+				std::shared_ptr<ipm_client_tunnel> st_tunnel = std::make_shared<ipm_client_tunnel>(root_event_base, this, ret_val);
+				std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
-			// 启动成功
-			mst_tunnel[ret_val] = st_tunnel;
+				// 重复则覆盖掉
+				if ((iter_tunnel = mst_tunnel.find(ret_val)) != mst_tunnel.end())
+				{
+					if (iter_tunnel->second->is_init())
+						iter_tunnel->second->exit();
+					mst_tunnel.erase(iter_tunnel);
+				}
+
+				// 允许启动失败
+				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len) != true)
+				{
+					slog_error("st_tunnel->init error");
+					ret = true;
+					goto end;
+				}
+
+				// 启动成功
+				mst_tunnel[ret_val] = st_tunnel;
+			}
 		}
 		break;
 	default:
@@ -282,6 +282,7 @@ void ipm_client::on_bufferevent_data_write(struct bufferevent* bev)
 
 void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 {
+	slog_info("bufferevent event flag = %u", (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_error("BEV_EVENT_READING error");
 		on_fail();

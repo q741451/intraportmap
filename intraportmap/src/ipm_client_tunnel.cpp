@@ -23,7 +23,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 
 	if (connect_to_server() != true)
 	{
-		slog_error("connect_to_server error");
+		slog_debug("connect_to_server error");
 		goto end;
 	}
 
@@ -31,7 +31,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 
 	if (connect_to_from() != true)
 	{
-		slog_error("connect_to_from error");
+		slog_debug("connect_to_from error");
 		goto end;
 	}
 
@@ -83,7 +83,7 @@ void ipm_client_tunnel::reset()
 
 void ipm_client_tunnel::on_fail()
 {
-	slog_info("on_fail");
+	slog_debug("client_tunnel on_fail %llu", index);
 	if (ptr_interface)
 		ptr_interface->on_interface_ipm_tunnel_client_fail(index);
 }
@@ -92,13 +92,17 @@ void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferev
 {
 	bool ret = false;
 
+#if VERBOSE_DEBUG
+	slog_debug("tunnel %llu server recv data", (unsigned long long)index);
+#endif
+
 	if (from_state == FROM_STATE::RUNNING)
 	{
 		struct evbuffer* input = bufferevent_get_input(bev);
 
 		if (bufferevent_write_buffer(from_bufferevent, input) != 0)
 		{
-			slog_error("bufferevent_write_buffer error");
+			slog_debug("bufferevent_write_buffer error");
 			goto end;
 		}
 	}
@@ -117,52 +121,54 @@ void ipm_client_tunnel::on_server_bufferevent_data_write_callback(struct buffere
 
 void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
+	slog_debug("tunnel server event %llu, flag = %u", index, (unsigned int)flag);
+
 	if (flag & BEV_EVENT_READING) {
-		slog_error("server BEV_EVENT_READING error");
+		slog_debug("server BEV_EVENT_READING error");
 		on_fail();
 		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
-		slog_error("server BEV_EVENT_WRITING error");
+		slog_debug("server BEV_EVENT_WRITING error");
 		on_fail();
 		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {
-		slog_error("server BEV_EVENT_ERROR error");
+		slog_debug("server BEV_EVENT_ERROR error");
 		on_fail();
 		return;
 	}
 
 	if (flag & BEV_EVENT_TIMEOUT) {
-		slog_error("server BEV_EVENT_TIMEOUT error");
+		slog_debug("server BEV_EVENT_TIMEOUT error");
 		on_fail();
 		return;
 	}
 
 	if (flag & BEV_EVENT_EOF) {
-		slog_error("server BEV_EVENT_EOF error");
+		slog_debug("server BEV_EVENT_EOF error");
 		on_fail();
 		return;
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		// ·¢ËÍ
-		slog_info("server BEV_EVENT_CONNECTED");
+		slog_debug("server BEV_EVENT_CONNECTED");
 		server_state = SERVER_STATE::RUNNING;
 		if (send_penetrate(bev) != true)
 		{
-			slog_error("send_penetrate error");
+			slog_debug("send_penetrate error");
 			on_fail();
 			return;
 		}
 		if (from_state == FROM_STATE::RUNNING)
 		{
-			slog_info("flush_from_data");
+			slog_debug("flush_from_data");
 			if(flush_from_data() != true)
 			{
-				slog_error("flush_from_data error");
+				slog_debug("flush_from_data error");
 				on_fail();
 				return;
 			}
@@ -172,6 +178,9 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 
 void ipm_client_tunnel::on_from_bufferevent_data_read_callback(struct bufferevent* bev)
 {
+#if VERBOSE_DEBUG
+	slog_debug("tunnel %llu from recv data", (unsigned long long)index);
+#endif
 	if (server_state == SERVER_STATE::RUNNING)
 	{
 		struct evbuffer* input = bufferevent_get_input(bev);
@@ -192,6 +201,7 @@ void ipm_client_tunnel::on_from_bufferevent_data_write_callback(struct buffereve
 
 void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
+	slog_debug("tunnel from event %llu, flag = %u", index, (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_error("from BEV_EVENT_READING error");
 		on_fail();

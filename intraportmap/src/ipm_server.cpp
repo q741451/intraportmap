@@ -97,6 +97,8 @@ void ipm_server::on_interface_ipm_server_agent_fail(bufferevent* bev)
 {
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>>::iterator iter;
 
+	slog_error("server agent_fail %p", bev);
+
 	if ((iter = msa_agent.find(bev)) == msa_agent.end())
 	{
 		slog_error("msa_agent error");
@@ -135,6 +137,8 @@ void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd)
 {
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
 
+	slog_debug("server tunnel_fail %llu", (unsigned long long)to_fd);
+
 	if ((iter = mst_tunnel.find(to_fd)) == mst_tunnel.end())
 	{
 		slog_error("mst_tunnel error");
@@ -148,7 +152,7 @@ void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd)
 
 void ipm_server::on_fail()
 {
-	slog_info("on_fail");
+	slog_error("server on_fail");
 	if (ptr_interface)
 		ptr_interface->on_interface_ipm_server_fail();
 }
@@ -232,6 +236,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			slog_error("check_checksum error");
 			goto end;
 		}
+		slog_info("alloc_agent client_bev = %p port = %u", bev, ntohl(ag_agent->port));
 		if (alloc_agent(bev, ag_agent) != true)
 		{
 			// 此时未托管
@@ -259,6 +264,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			slog_error("check_checksum error");
 			goto end;
 		}
+		slog_info("join_tunnel_client index = %llu", index);
 		// 已准备好
 		if (join_tunnel_client(bev, index) != true)
 		{
@@ -296,6 +302,7 @@ void ipm_server::on_bufferevent_data_write(struct bufferevent* bev)
 
 void ipm_server::on_bufferevent_event(struct bufferevent* bev, short flag)
 {
+	slog_error("server event flag = %u", (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		if (close_and_remove_bufferevent(bev) != true)
 		{

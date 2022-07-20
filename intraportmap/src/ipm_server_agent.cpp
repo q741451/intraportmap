@@ -79,7 +79,7 @@ void ipm_server_agent::reset()
 
 void ipm_server_agent::on_fail()
 {
-	slog_info("on_fail");
+	slog_error("server_agent on_fail client %p", client_bufferevent);
 	if (ptr_interface)
 		ptr_interface->on_interface_ipm_server_agent_fail(client_bufferevent);
 }
@@ -87,6 +87,7 @@ void ipm_server_agent::on_fail()
 void ipm_server_agent::on_client_bufferevent_data_read_callback(struct bufferevent* bev)
 {
 	// Ò»¶Á¾Í¹Ò
+	slog_error("agent client cant read %p", client_bufferevent);
 	on_fail();
 }
 
@@ -97,6 +98,7 @@ void ipm_server_agent::on_client_bufferevent_data_write_callback(struct bufferev
 
 void ipm_server_agent::on_client_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
+	slog_error("server_agent event %p, flag = %u", client_bufferevent, (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_error("BEV_EVENT_READING error");
 		on_fail();
@@ -144,6 +146,8 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 		slog_error("fd == -1");
 		goto end;
 	}
+
+	slog_info("server_agent %p new tunnel %llu", client_bufferevent, (unsigned long long)fd);
 
 	if ((buff_bev = bufferevent_socket_new(root_event_base, fd, BEV_OPT_CLOSE_ON_FREE)) == NULL)
 	{
