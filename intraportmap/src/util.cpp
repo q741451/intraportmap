@@ -29,6 +29,10 @@ bool util::split_addr_string(const char* addrfull, std::string& addrstr, std::st
 		goto end;
 
 	addrstr = addrfull_s.substr(0, last_mm);
+	if (addrstr.size() >= 2 && addrstr.c_str()[0] == '[' && addrstr.c_str()[addrstr.size() - 1] == ']')
+	{
+		addrstr = addrfull_s.substr(1, last_mm - 2);
+	}
 	portstr = addrfull_s.substr(last_mm + 1);
 
 	ret = true;

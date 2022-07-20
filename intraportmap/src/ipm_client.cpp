@@ -341,8 +341,6 @@ bool ipm_client::dns_query_server()
 
 	memset(&hints, 0, sizeof(struct evutil_addrinfo));
 	hints.ai_family = AF_UNSPEC;               /* Return IPv4 and IPv6 choices */
-	hints.ai_socktype = SOCK_STREAM;             /* We want a TCP socket */
-	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* For wildcard IP address */
 	hints.ai_protocol = IPPROTO_TCP;
 
 	slog_info("resolving %s:%s...", server_name.c_str(), server_port_name.c_str());
