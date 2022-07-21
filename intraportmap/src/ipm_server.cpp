@@ -11,12 +11,13 @@ ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interf
 	reset();
 }
 
-bool ipm_server::init(const char* server_name_c, const char* server_port_name_c)
+bool ipm_server::init(const char* server_name_c, const char* server_port_name_c, size_t max_buffer_sz)
 {
 	bool ret = false;
 
 	server_name = server_name_c;
 	server_port_name = server_port_name_c;
+	max_buffer = max_buffer_sz;
 
 	if (util::getaddrinfo_first(server_name.c_str(), server_port_name.c_str(), server_addr, &server_addr_len) != true)
 	{
@@ -92,6 +93,7 @@ void ipm_server::reset()
 	is_state_init = false;
 	server_state = SERVER_STATE::IDLE;
 	server_addr_len = 0;
+	max_buffer = 1024 * 1024;
 	sbe_bufferevent.clear();
 	msa_agent.clear();
 	mst_tunnel.clear();
@@ -121,7 +123,7 @@ bool ipm_server::on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, b
 	std::shared_ptr<ipm_server_tunnel> st_tunnel = std::make_shared<ipm_server_tunnel>(root_event_base, this, to_fd);
 	bool ret = false;
 
-	if (st_tunnel->init(to_bev) != true)
+	if (st_tunnel->init(to_bev, max_buffer) != true)
 	{
 		slog_error("st_tunnel->init(to_bev) error");
 		goto end;

@@ -13,7 +13,7 @@ class ipm_server_tunnel
 public:
 	ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, evutil_socket_t to_fd_u);
 
-	bool init(struct bufferevent* to_bev);
+	bool init(struct bufferevent* to_bev, size_t max_buffer_sz);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -38,10 +38,14 @@ private:
 	interface_ipm_server_tunnel* ptr_interface;
 	// 编号
 	evutil_socket_t to_fd;
+	// 配置
+	size_t max_buffer;
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 	// 保留的连接，外部传入，本类释放
+	bool	client_write_need_flush;
 	struct bufferevent* client_bufferevent;	// 客户端
+	bool	to_write_need_flush;
 	struct bufferevent* to_bufferevent;	// 连接到被代理主机
 };
 

@@ -28,7 +28,7 @@ public:
 
 	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u);
 
-	bool init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u);
+	bool init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, size_t max_buffer_sz);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -46,8 +46,6 @@ private:
 	bool connect_to_server();		// 尝试连接到服务器
 	bool connect_to_from();			// 尝试连接到被代理主机
 	bool send_penetrate(struct bufferevent* bev);	// 发送开辟端口信息
-	bool flush_server_data();
-	bool flush_from_data();
 
 private:
 	bool is_state_init;
@@ -60,11 +58,14 @@ private:
 	unsigned int server_addr_len;
 	struct sockaddr_storage from_server_addr;
 	unsigned int from_server_addr_len;
+	size_t max_buffer;
 	// 2连接状态
 	FROM_STATE from_state;
 	SERVER_STATE server_state;
 	// 转发的buffer
+	bool	server_write_need_flush;
 	struct bufferevent* server_bufferevent;	// 连接到服务器
+	bool	from_write_need_flush;
 	struct bufferevent* from_bufferevent;	// 连接到被代理主机
 };
 

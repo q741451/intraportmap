@@ -27,7 +27,7 @@ bool intraportmap::init(int argc, char* argv[])
 	{
 		slog_info("run as server");
 		sp_ipm_server = std::make_shared<ipm_server>(root_event_base, this);
-		if (sp_ipm_server->init(server_name.c_str(), server_port_name.c_str()) != true)
+		if (sp_ipm_server->init(server_name.c_str(), server_port_name.c_str(), (size_t)max_buffer) != true)
 		{
 			slog_error("sp_ipm_server init error");
 			goto end;
@@ -37,7 +37,7 @@ bool intraportmap::init(int argc, char* argv[])
 	{
 		slog_info("run as client");
 		sp_ipm_client = std::make_shared<ipm_client>(root_event_base, this);
-		if (sp_ipm_client->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time) != true)
+		if (sp_ipm_client->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time, (size_t)max_buffer) != true)
 		{
 			slog_error("sp_ipm_client init error");
 			goto end;
@@ -100,6 +100,7 @@ void intraportmap::reset()
 	is_server = true;
 	is_state_init = false;
 	client_reconn_time = 15;
+	max_buffer = 1024 * 1024;
 	root_event_base = NULL;
 	signal_event = NULL;
 	if (sp_ipm_client)
@@ -144,7 +145,7 @@ bool intraportmap::init_config(int argc, char* argv[])
 	std::string from_full;
 	int opt = 0;
 
-	while ((opt = getopt(argc, argv, "cs:t:f:w:")) != -1) {
+	while ((opt = getopt(argc, argv, "cs:t:f:w:b:")) != -1) {
 		switch (opt) {
 		case 'c':
 			is_server = false;
@@ -160,6 +161,13 @@ bool intraportmap::init_config(int argc, char* argv[])
 			break;
 		case 'w':
 			if (sscanf(optarg, "%u", &client_reconn_time) <= 0)
+			{
+				slog_error("error option w %s", optarg);
+				goto end;
+			}
+			break;
+		case 'b':
+			if (sscanf(optarg, "%llu", &max_buffer) <= 0)
 			{
 				slog_error("error option w %s", optarg);
 				goto end;

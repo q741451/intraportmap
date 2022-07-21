@@ -11,7 +11,7 @@ ipm_client::ipm_client(struct event_base* base, interface_ipm_client* ptr_interf
 	reset();
 }
 
-bool ipm_client::init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c, const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c, unsigned int client_reconn_time_u)
+bool ipm_client::init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c, const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c, unsigned int client_reconn_time_u, size_t max_buffer_sz)
 {
 	bool ret = false;
 
@@ -22,6 +22,7 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 	from_server_name = from_server_name_c;
 	from_server_port_name = from_server_port_name_c;
 	client_reconn_time = client_reconn_time_u;
+	max_buffer = max_buffer_sz;
 
 	if (util::getaddrinfo_first(to_server_name.c_str(), to_server_port_name.c_str(), to_server_addr, &to_server_addr_len) != true)
 	{
@@ -116,6 +117,7 @@ void ipm_client::reset()
 	server_addr_len = 0;
 	to_server_addr_len = 0;
 	from_server_addr_len = 0;
+	max_buffer = 1024 * 1024;
 	timer_event = NULL;
 	server_evdns_base = NULL;
 	mst_tunnel.clear();
@@ -246,7 +248,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 				}
 
 				// ÔÊĞíÆô¶¯Ê§°Ü
-				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len) != true)
+				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len, max_buffer) != true)
 				{
 					slog_error("st_tunnel->init error");
 					ret = true;

@@ -12,7 +12,7 @@ ipm_client_tunnel::ipm_client_tunnel(struct event_base* base, interface_ipm_clie
 	reset();
 }
 
-bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u)
+bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, size_t max_buffer_sz)
 {
 	bool ret = false;
 
@@ -20,6 +20,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 	server_addr_len = server_addr_len_u;
 	from_server_addr = from_server_addr_ss;
 	from_server_addr_len = from_server_addr_len_u;
+	max_buffer = max_buffer_sz;
 
 	if (connect_to_server() != true)
 	{
@@ -75,9 +76,12 @@ void ipm_client_tunnel::reset()
 {
 	server_addr_len = 0;
 	from_server_addr_len = 0;
+	max_buffer = 1024 * 1024;
 	from_state = FROM_STATE::IDLE;
 	server_state = SERVER_STATE::IDLE;
+	server_write_need_flush = false;
 	server_bufferevent = NULL;
+	from_write_need_flush = false;
 	from_bufferevent = NULL;
 }
 
@@ -96,14 +100,26 @@ void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferev
 	slog_debug("tunnel %llu server recv data", (unsigned long long)index);
 #endif
 
-	if (from_state == FROM_STATE::RUNNING)
 	{
 		struct evbuffer* input = bufferevent_get_input(bev);
+		struct evbuffer* output = bufferevent_get_output(from_bufferevent);
 
-		if (bufferevent_write_buffer(from_bufferevent, input) != 0)
+		if (evbuffer_add_buffer(output, input) != 0)
 		{
-			slog_debug("bufferevent_write_buffer error");
+			slog_debug("evbuffer_add_buffer error");
 			goto end;
+		}
+
+		// 超标了，就不读了，等写一半后再说
+		if (evbuffer_get_length(output) >= max_buffer)
+		{
+			bufferevent_setwatermark(from_bufferevent, EV_WRITE, max_buffer / 2, max_buffer);
+			if (bufferevent_disable(bev, EV_READ) != 0)
+			{
+				slog_debug("bufferevent_disable error");
+				goto end;
+			}
+			from_write_need_flush = true;
 		}
 	}
 
@@ -116,12 +132,20 @@ end:
 
 void ipm_client_tunnel::on_server_bufferevent_data_write_callback(struct bufferevent* bev)
 {
+	if (server_write_need_flush)
+	{
+		bufferevent_setwatermark(bev, EV_WRITE, 0, 0);
+		bufferevent_enable(from_bufferevent, EV_READ);
+		server_write_need_flush = false;
+	}
 
 }
 
 void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
 	slog_debug("tunnel server event %llu, flag = %u", index, (unsigned int)flag);
+
+	server_state = SERVER_STATE::IDLE;
 
 	if (flag & BEV_EVENT_READING) {
 		slog_debug("server BEV_EVENT_READING error");
@@ -163,45 +187,64 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 			on_fail();
 			return;
 		}
-		if (from_state == FROM_STATE::RUNNING)
-		{
-			slog_debug("flush_from_data");
-			if(flush_from_data() != true)
-			{
-				slog_debug("flush_from_data error");
-				on_fail();
-				return;
-			}
-		}
 	}
 }
 
 void ipm_client_tunnel::on_from_bufferevent_data_read_callback(struct bufferevent* bev)
 {
+	bool ret = false;
+
 #if VERBOSE_DEBUG
 	slog_debug("tunnel %llu from recv data", (unsigned long long)index);
 #endif
-	if (server_state == SERVER_STATE::RUNNING)
+
 	{
 		struct evbuffer* input = bufferevent_get_input(bev);
+		struct evbuffer* output = bufferevent_get_output(server_bufferevent);
 
-		if (bufferevent_write_buffer(server_bufferevent, input) != 0)
+		if (evbuffer_add_buffer(output, input) != 0)
 		{
-			slog_error("bufferevent_write_buffer error");
-			on_fail();
-			return;
+			slog_debug("evbuffer_add_buffer error");
+			goto end;
+		}
+
+		// 超标了，就不读了，等写一半后再说
+		if (evbuffer_get_length(output) >= max_buffer)
+		{
+			bufferevent_setwatermark(server_bufferevent, EV_WRITE, max_buffer / 2, max_buffer);
+			if (bufferevent_disable(bev, EV_READ) != 0)
+			{
+				slog_debug("bufferevent_disable error");
+				goto end;
+			}
+			server_write_need_flush = true;
 		}
 	}
+
+	ret = true;
+end:
+	if (ret != true)
+		on_fail();
+	return;
 }
 
 void ipm_client_tunnel::on_from_bufferevent_data_write_callback(struct bufferevent* bev)
 {
+	if (from_write_need_flush)
+	{
+		bufferevent_setwatermark(bev, EV_WRITE, 0, 0);
+		bufferevent_enable(server_bufferevent, EV_READ);
+		from_write_need_flush = false;
+	}
 
 }
 
 void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
 	slog_debug("tunnel from event %llu, flag = %u", index, (unsigned int)flag);
+
+	from_state = FROM_STATE::IDLE;
+
 	if (flag & BEV_EVENT_READING) {
 		slog_error("from BEV_EVENT_READING error");
 		on_fail();
@@ -235,16 +278,6 @@ void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* b
 	if (flag & BEV_EVENT_CONNECTED) {
 		slog_info("from BEV_EVENT_CONNECTED, done");
 		from_state = FROM_STATE::RUNNING;
-		if (server_state == SERVER_STATE::RUNNING)
-		{
-			slog_info("flush_server_data");
-			if (flush_server_data() != true)
-			{
-				slog_error("flush_server_data error");
-				on_fail();
-				return;
-			}
-		}
 	}
 }
 
@@ -340,46 +373,6 @@ bool ipm_client_tunnel::send_penetrate(struct bufferevent* bev)
 	ret = true;
 end:
 	if (ptr_penetrate) free(ptr_penetrate);
-	return ret;
-}
-
-bool ipm_client_tunnel::flush_server_data()
-{
-	bool ret = false;
-	struct evbuffer* input = bufferevent_get_input(server_bufferevent);
-	size_t length = evbuffer_get_length(input);
-
-	if (length == 0)
-	{
-		ret = true;
-		goto end;
-	}
-
-	if (bufferevent_write_buffer(from_bufferevent, input) != 0)
-		goto end;
-
-	ret = true;
-end:
-	return ret;
-}
-
-bool ipm_client_tunnel::flush_from_data()
-{
-	bool ret = false;
-	struct evbuffer* input = bufferevent_get_input(from_bufferevent);
-	size_t length = evbuffer_get_length(input);
-
-	if (length == 0)
-	{
-		ret = true;
-		goto end;
-	}
-
-	if (bufferevent_write_buffer(server_bufferevent, input) != 0)
-		goto end;
-
-	ret = true;
-end:
 	return ret;
 }
 
