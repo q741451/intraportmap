@@ -149,14 +149,10 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 
 	if (flag & BEV_EVENT_READING) {
 		slog_debug("server BEV_EVENT_READING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
 		slog_debug("server BEV_EVENT_WRITING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {
@@ -247,14 +243,10 @@ void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* b
 
 	if (flag & BEV_EVENT_READING) {
 		slog_error("from BEV_EVENT_READING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
 		slog_error("from BEV_EVENT_WRITING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {

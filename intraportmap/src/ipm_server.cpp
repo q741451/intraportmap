@@ -312,21 +312,9 @@ void ipm_server::on_bufferevent_event(struct bufferevent* bev, short flag)
 {
 	slog_error("server event flag = %u", (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
-		if (close_and_remove_bufferevent(bev) != true)
-		{
-			slog_error("close_and_remove_bufferevent error");
-			on_fail();
-		}
-		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
-		if (close_and_remove_bufferevent(bev) != true)
-		{
-			slog_error("close_and_remove_bufferevent error");
-			on_fail();
-		}
-		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {

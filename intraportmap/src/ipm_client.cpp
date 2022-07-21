@@ -282,14 +282,10 @@ void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 	slog_info("bufferevent event flag = %u", (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_error("BEV_EVENT_READING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
 		slog_error("BEV_EVENT_WRITING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {

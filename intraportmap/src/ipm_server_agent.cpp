@@ -107,14 +107,10 @@ void ipm_server_agent::on_client_bufferevent_event_callback(struct bufferevent* 
 	slog_error("server_agent event %p, flag = %u", client_bufferevent, (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_error("BEV_EVENT_READING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_WRITING) {
 		slog_error("BEV_EVENT_WRITING error");
-		on_fail();
-		return;
 	}
 
 	if (flag & BEV_EVENT_ERROR) {
