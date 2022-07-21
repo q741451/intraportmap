@@ -44,7 +44,7 @@ private:
 	bool start_listener(const struct sockaddr* addr, int addr_length);		// 开启服务器
 	bool remove_bufferevent(bufferevent* buf_event);
 	bool close_and_remove_bufferevent(bufferevent* buf_event);
-	bool alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg);
+	bool alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg, bool& is_fatal);
 	bool join_tunnel_client(struct bufferevent* bev, unsigned long long index);
 
 private:
@@ -64,6 +64,7 @@ private:
 	struct evconnlistener* listener6;
 	std::set<bufferevent*>	sbe_bufferevent;		// 第一步，缓存的，可以分配到tunnel或agent
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 连接+代理listen
+	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_agent>> asa_agent;		// 连接+代理listen
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_fd
 };
 

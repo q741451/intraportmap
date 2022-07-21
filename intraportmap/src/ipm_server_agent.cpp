@@ -11,7 +11,7 @@ ipm_server_agent::ipm_server_agent(struct event_base* base, interface_ipm_server
 	reset();
 }
 
-bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int agent_addr_len_u, struct bufferevent* client_bev)
+bool ipm_server_agent::init(addr_pkg_idx& addr_idx_api, struct bufferevent* client_bev)
 {
 	bool ret = false;
 
@@ -26,8 +26,25 @@ bool ipm_server_agent::init(struct sockaddr_storage& agent_addr_ss, unsigned int
 		goto end;
 	}
 
-	agent_addr = agent_addr_ss;
-	agent_addr_len = agent_addr_len_u;
+	addr_idx = addr_idx_api;
+	if (addr_idx.addr_pkg.is_ipv6)
+	{
+		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&agent_addr;
+		memset(addr_in6, 0, sizeof(struct sockaddr_in6));
+		memcpy(&addr_in6->sin6_addr, addr_idx.addr_pkg.ip, sizeof(addr_in6->sin6_addr));
+		addr_in6->sin6_family = AF_INET6;
+		addr_in6->sin6_port = htons((unsigned short)ntohl(addr_idx.addr_pkg.port));
+		agent_addr_len = sizeof(struct sockaddr_in6);
+	}
+	else
+	{
+		struct sockaddr_in* addr_in = (struct sockaddr_in*)&agent_addr;
+		memset(addr_in, 0, sizeof(struct sockaddr_in));
+		memcpy(&addr_in->sin_addr, addr_idx.addr_pkg.ip, sizeof(addr_in->sin_addr));
+		addr_in->sin_family = AF_INET;
+		addr_in->sin_port = htons((unsigned short)ntohl(addr_idx.addr_pkg.port));
+		agent_addr_len = sizeof(struct sockaddr_in);
+	}
 
 	slog_info("ipm_server_agent %p start at [%s]:%s", client_bev, util::get_ipname_from_sockaddr((struct sockaddr*)&agent_addr).c_str(), util::get_portstr_from_sockaddr((struct sockaddr*)&agent_addr).c_str());
 
@@ -81,6 +98,16 @@ void ipm_server_agent::reset()
 	listener = NULL;
 	listener6 = NULL;
 	client_bufferevent = NULL;
+}
+
+addr_pkg_idx& ipm_server_agent::get_addr_pkg_idx()
+{
+	return addr_idx;
+}
+
+struct bufferevent* ipm_server_agent::get_client_bufferevent()
+{
+	return client_bufferevent;
 }
 
 void ipm_server_agent::on_fail()

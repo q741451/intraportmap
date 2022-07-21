@@ -6,6 +6,11 @@ void ipm_server_bufferevent_data_read_callback(struct bufferevent* bev, void* ct
 void ipm_server_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_server_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
+bool operator < (const addr_pkg_idx& item1, const addr_pkg_idx& item2)
+{
+	return memcmp(&item1.addr_pkg, &item1.addr_pkg, sizeof(address_package_t)) < 0;
+}
+
 ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p) : ptr_interface(ptr_interface_p), root_event_base(base)
 {
 	reset();
@@ -96,6 +101,7 @@ void ipm_server::reset()
 	max_buffer = 1024 * 1024;
 	sbe_bufferevent.clear();
 	msa_agent.clear();
+	asa_agent.clear();
 	mst_tunnel.clear();
 	listener = NULL;
 	listener6 = NULL;
@@ -114,6 +120,7 @@ void ipm_server::on_interface_ipm_server_agent_fail(bufferevent* bev)
 		return;
 	}
 
+	asa_agent.erase(iter->second->get_addr_pkg_idx());
 	iter->second->exit();
 	msa_agent.erase(iter);
 }
@@ -209,6 +216,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	unsigned long long index;
 	int bytes_copied = 0;
 	unsigned char* buffer;
+	bool is_fatal = false;
 	alloc_agent_package_t* ag_agent = NULL;
 	std::string s_data;
 	bool ret = false;
@@ -234,6 +242,11 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 		}
 		// 已准备好
 		ag_agent = (alloc_agent_package_t*)malloc(use_len);
+		if (ag_agent == NULL)
+		{
+			slog_error("ag_agent null error");
+			goto end;
+		}
 		if ((bytes_copied = evbuffer_remove(input, (char*)ag_agent, use_len)) != (int)use_len)
 		{
 			slog_error("evbuffer_remove error");
@@ -244,8 +257,8 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			slog_error("check_checksum error");
 			goto end;
 		}
-		slog_info("alloc_agent client_bev = %p port = %u", bev, ntohl(ag_agent->port));
-		if (alloc_agent(bev, ag_agent) != true)
+		slog_info("alloc_agent client_bev = %p port = %u", bev, ntohl(ag_agent->addr_pkg.port));
+		if (alloc_agent(bev, ag_agent, is_fatal) != true)
 		{
 			// 此时未托管
 			slog_error("alloc_agent error");
@@ -287,6 +300,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	{
 		// fatal
 		slog_error("remove_bufferevent error");
+		is_fatal = true;
 		goto end;
 	}
 
@@ -298,8 +312,12 @@ end:
 		if (close_and_remove_bufferevent(bev) != true)
 		{
 			slog_error("close_and_remove_bufferevent error");
-			on_fail();
+			is_fatal = true;
 		}
+	}
+	if (is_fatal)
+	{
+		on_fail();
 	}
 }
 
@@ -439,37 +457,38 @@ end:
 	return ret;
 }
 
-bool ipm_server::alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg)
+bool ipm_server::alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg, bool& is_fatal)
 {
 	bool ret = false;
-	struct sockaddr_storage agent_addr;
-	unsigned int agent_addr_len = 0;
+	addr_pkg_idx addr_idx;
 	std::shared_ptr<ipm_server_agent> sag;
+	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_agent>>::iterator iter_idx;
+	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>>::iterator iter_bev;
 
-	if (pkg->is_ipv6)
+	addr_idx.addr_pkg = pkg->addr_pkg;
+	if ((iter_idx = asa_agent.find(addr_idx)) != asa_agent.end())
 	{
-		struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&agent_addr;
-		memset(addr_in6, 0, sizeof(struct sockaddr_in6));
-		memcpy(&addr_in6->sin6_addr, pkg->ip, sizeof(addr_in6->sin6_addr));
-		addr_in6->sin6_family = AF_INET6;
-		addr_in6->sin6_port = htons((unsigned short)ntohl(pkg->port));
-		agent_addr_len = sizeof(struct sockaddr_in6);
-	}
-	else
-	{
-		struct sockaddr_in* addr_in = (struct sockaddr_in*)&agent_addr;
-		memset(addr_in, 0, sizeof(struct sockaddr_in));
-		memcpy(&addr_in->sin_addr, pkg->ip, sizeof(addr_in->sin_addr));
-		addr_in->sin_family = AF_INET;
-		addr_in->sin_port = htons((unsigned short)ntohl(pkg->port));
-		agent_addr_len = sizeof(struct sockaddr_in);
+		slog_warn("asa_agent port %u is in use, agent %p, exit now", ntohl(addr_idx.addr_pkg.port), iter_idx->second->get_client_bufferevent());
+
+		if ((iter_bev = msa_agent.find(iter_idx->second->get_client_bufferevent())) == msa_agent.end())
+		{
+			slog_error("msa_agent error");
+			is_fatal = true;
+			goto end;
+		}
+
+		asa_agent.erase(iter_idx);
+		iter_bev->second->exit();
+		msa_agent.erase(iter_bev);
 	}
 
 	sag = std::make_shared<ipm_server_agent>(root_event_base, this);
-	if (sag->init(agent_addr, agent_addr_len, bev) != true)
+	
+	if (sag->init(addr_idx, bev) != true)
 		goto end;
 
 	msa_agent[bev] = sag;
+	asa_agent[sag->get_addr_pkg_idx()] = sag;
 
 	ret = true;
 end:
