@@ -76,9 +76,6 @@ bool ipm_client::exit()
 
 	client_exit();
 
-	if (server_evdns_base)
-		evdns_base_free(server_evdns_base, 0);
-
 	if (timer_event)
 		event_free(timer_event);
 
@@ -105,7 +102,6 @@ void ipm_client::reset()
 	from_server_addr_len = 0;
 	max_buffer = 1024 * 1024;
 	timer_event = NULL;
-	server_evdns_base = NULL;
 	mst_tunnel.clear();
 	client_reset();
 }
