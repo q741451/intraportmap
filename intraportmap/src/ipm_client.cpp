@@ -36,12 +36,6 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 		goto end;
 	}
 
-	if ((server_evdns_base = evdns_base_new(root_event_base, 0)) == NULL)
-	{
-		slog_error("evdns_base_new error");
-		goto end;
-	}
-
 	if ((timer_event = evtimer_new(root_event_base, ipm_client_timer_event_callback, this)) == NULL)
 	{
 		slog_error("evtimer_new error");
@@ -348,6 +342,12 @@ bool ipm_client::dns_query_server()
 
 	slog_info("resolving %s:%s...", server_name.c_str(), server_port_name.c_str());
 
+	if ((server_evdns_base = evdns_base_new(root_event_base, 0)) == NULL)
+	{
+		slog_error("evdns_base_new error");
+		goto end;
+	}
+
 #ifdef WIN32
 	if (evdns_base_config_windows_nameservers(server_evdns_base) != 0)
 	{
@@ -444,6 +444,9 @@ end:
 
 bool ipm_client::client_exit()
 {
+	if (server_evdns_base)
+		evdns_base_free(server_evdns_base, 0);
+
 	if (timer_event)
 		evtimer_del(timer_event);
 
@@ -455,6 +458,7 @@ bool ipm_client::client_exit()
 
 void ipm_client::client_reset()
 {
+	server_evdns_base = NULL;
 	server_bufferevent = NULL;
 }
 
