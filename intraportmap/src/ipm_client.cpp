@@ -338,31 +338,21 @@ bool ipm_client::dns_query_server()
 
 	slog_info("resolving %s:%s...", server_name.c_str(), server_port_name.c_str());
 
-	if ((server_evdns_base = evdns_base_new(root_event_base, 0)) == NULL)
+	if ((server_evdns_base = evdns_base_new(root_event_base, 1)) == NULL)
 	{
 		slog_error("evdns_base_new error");
 		goto end;
 	}
 
-#ifdef WIN32
-	if (evdns_base_config_windows_nameservers(server_evdns_base) != 0)
-	{
-		slog_error("evdns_base_config_windows_nameservers error");
-		goto end;
-	}
-#endif
-
 	// request = NULL时， cb已调用， request不为NULL，异步，如果win下没dns则取消，否则不回调
 	if ((request = evdns_getaddrinfo(server_evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, ipm_client_evdns_getaddrinfo_callback, this)) != NULL)
 	{
-#ifdef WIN32
 		if (evdns_base_count_nameservers(server_evdns_base) == 0)
 		{
-			slog_error("win32 evdns_base_count_nameservers error, cancel request");
+			slog_error("evdns_base_count_nameservers error, cancel request");
 			if (request)
 				evdns_getaddrinfo_cancel(request);
 		}
-#endif
 	}
 
 	ret = true;
