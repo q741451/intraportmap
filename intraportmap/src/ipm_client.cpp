@@ -35,7 +35,7 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 		goto end;
 	}
 
-	if ((server_evdns_base = evdns_base_new(root_event_base, EVDNS_BASE_DISABLE_WHEN_INACTIVE)) == NULL)
+	if ((server_evdns_base = evdns_base_new(root_event_base, 0)) == NULL)
 	{
 		slog_error("evdns_base_new error");
 		goto end;
@@ -369,7 +369,7 @@ bool ipm_client::client_connect_to_server(const struct sockaddr* addr, int addr_
 		goto end;
 	}
 
-	if (bufferevent_socket_connect(server_bufferevent, addr, addr_length) != 0)
+	if (bufferevent_socket_connect(server_bufferevent, (struct sockaddr*)addr, addr_length) != 0)
 	{
 		slog_error("bufferevent_socket_connect error");
 		goto end;
