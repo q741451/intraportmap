@@ -42,31 +42,23 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 		goto end;
 	}
 
-#ifdef WIN32
-	if (evdns_base_config_windows_nameservers(server_evdns_base) != 0)
-	{
-		slog_error("evdns_base_config_windows_nameservers error");
-		goto end;
-	}
-#endif
-
 	if ((timer_event = evtimer_new(root_event_base, ipm_client_timer_event_callback, this)) == NULL)
 	{
 		slog_error("evtimer_new error");
 		goto end;
 	}
 
-	// 开始第一步
-	slog_info("dns_query_server...");
+	ret = true;
+
+	// 开始第一步，允许失败
 	if (dns_query_server() != true)
 	{
 		slog_error("dns_query_server error");
+		on_fail();
 		goto end;
 	}
 
 	client_state = CLIENT_STATE::DNS_QUERYING;
-
-	ret = true;
 end:
 	if (ret == true)
 		is_state_init = true;
@@ -175,29 +167,41 @@ void ipm_client::on_fatal_fail()
 void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 {
 	struct evutil_addrinfo* rp;
+	bool ret = false;
 
 	slog_info("on_evdns_getaddrinfo");
 
 	rp = result;
 
+	server_addr_len = 0;
+
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		slog_info("client_connect_to_server [%s]:%s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str(), util::get_portstr_from_sockaddr(rp->ai_addr).c_str());
 		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
 		server_addr_len = (unsigned int)rp->ai_addrlen;
-		if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)
-		{
-			on_fail();
-			goto end;
-		}
-
 		// 只取第一个
 		break;
 	}
 
+	if (server_addr_len == 0)
+	{
+		slog_error("no address found");
+		goto end;
+	}
+
+	if (client_connect_to_server((struct sockaddr*)&server_addr, server_addr_len) != true)
+	{
+		slog_error("client_connect_to_server error");
+		goto end;
+	}
+
+	ret = true;
 	client_state = CLIENT_STATE::SERVER_CONNECTING;
 end:
 	if (result)
 		evutil_freeaddrinfo(result);
+	if (ret != true)
+		on_fail();
 }
 
 void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
@@ -335,6 +339,7 @@ void ipm_client::on_timer_event(evutil_socket_t sig, short events)
 bool ipm_client::dns_query_server()
 {
 	bool ret = false;
+	evdns_getaddrinfo_request* request = NULL;	// 无需释放
 	struct evutil_addrinfo hints;
 
 	memset(&hints, 0, sizeof(struct evutil_addrinfo));
@@ -343,11 +348,29 @@ bool ipm_client::dns_query_server()
 
 	slog_info("resolving %s:%s...", server_name.c_str(), server_port_name.c_str());
 
-	// 挂了也会调cb，无需检测返回值
-	evdns_getaddrinfo(server_evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, ipm_client_evdns_getaddrinfo_callback, this);
+#ifdef WIN32
+	if (evdns_base_config_windows_nameservers(server_evdns_base) != 0)
+	{
+		slog_error("evdns_base_config_windows_nameservers error");
+		goto end;
+	}
+#endif
+
+	// request = NULL时， cb已调用， request不为NULL，异步，如果win下没dns则取消，否则不回调
+	if ((request = evdns_getaddrinfo(server_evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, ipm_client_evdns_getaddrinfo_callback, this)) != NULL)
+	{
+#ifdef WIN32
+		if (evdns_base_count_nameservers(server_evdns_base) == 0)
+		{
+			slog_error("win32 evdns_base_count_nameservers error, cancel request");
+			if (request)
+				evdns_getaddrinfo_cancel(request);
+		}
+#endif
+	}
 
 	ret = true;
-	//end:
+end:
 	return ret;
 }
 
