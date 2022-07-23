@@ -8,7 +8,7 @@ void ipm_server_bufferevent_event_callback(struct bufferevent* bev, short what, 
 
 bool operator < (const addr_pkg_idx& item1, const addr_pkg_idx& item2)
 {
-	return memcmp(&item1.addr_pkg, &item1.addr_pkg, sizeof(address_package_t)) < 0;
+	return memcmp(&item1.addr_pkg, &item2.addr_pkg, sizeof(address_package_t)) < 0;
 }
 
 ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p) : ptr_interface(ptr_interface_p), root_event_base(base)
