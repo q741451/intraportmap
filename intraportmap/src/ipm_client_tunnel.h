@@ -13,17 +13,18 @@ public:
 class ipm_client_tunnel
 {
 public:
-	enum class FROM_STATE : unsigned int
+	enum class CONN_STATE : unsigned int
 	{
 		IDLE,
 		CONNECTING,
 		RUNNING,
+		BROKEN,
 	};
-	enum class SERVER_STATE : unsigned int
+	enum class FLUSH_STATE : unsigned int // 非RUNNING时也有效，CONNECTED后跑
 	{
-		IDLE,
-		CONNECTING,
-		RUNNING,
+		NORMAL,
+		FLUSH_AND_REREAD,
+		FLUSH_AND_EXIT,
 	};
 
 	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u);
@@ -35,6 +36,8 @@ public:
 
 public:
 	void on_fail();
+	void on_server_fail();
+	void on_from_fail();
 	void on_server_bufferevent_data_read_callback(struct bufferevent* bev);
 	void on_server_bufferevent_data_write_callback(struct bufferevent* bev);
 	void on_server_bufferevent_event_callback(struct bufferevent* bev, short what);
@@ -59,13 +62,13 @@ private:
 	struct sockaddr_storage from_server_addr;
 	unsigned int from_server_addr_len;
 	size_t max_buffer;
-	// 2连接状态
-	FROM_STATE from_state;
-	SERVER_STATE server_state;
+	// 2连接状态，清空状态
+	CONN_STATE from_state;
+	CONN_STATE server_state;
+	FLUSH_STATE from_flush_state;
+	FLUSH_STATE server_flush_state;
 	// 转发的buffer
-	bool	server_write_need_flush;
 	struct bufferevent* server_bufferevent;	// 连接到服务器
-	bool	from_write_need_flush;
 	struct bufferevent* from_bufferevent;	// 连接到被代理主机
 };
 

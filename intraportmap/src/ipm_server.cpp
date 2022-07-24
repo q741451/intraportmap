@@ -98,7 +98,7 @@ void ipm_server::reset()
 	is_state_init = false;
 	server_state = SERVER_STATE::IDLE;
 	server_addr_len = 0;
-	max_buffer = 1024 * 1024;
+	max_buffer = DEF_MAX_BUFFER;
 	sbe_bufferevent.clear();
 	msa_agent.clear();
 	asa_agent.clear();

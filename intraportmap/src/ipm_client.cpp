@@ -100,7 +100,7 @@ void ipm_client::reset()
 	server_addr_len = 0;
 	to_server_addr_len = 0;
 	from_server_addr_len = 0;
-	max_buffer = 1024 * 1024;
+	max_buffer = DEF_MAX_BUFFER;
 	timer_event = NULL;
 	mst_tunnel.clear();
 	client_reset();

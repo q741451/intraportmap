@@ -18,6 +18,7 @@
 #endif
 
 #define VERBOSE_DEBUG 0
+#define DEF_MAX_BUFFER (1024 * 1024)
 
 #include <signal.h>
 #include <memory.h>

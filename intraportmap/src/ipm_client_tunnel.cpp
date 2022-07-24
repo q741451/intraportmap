@@ -28,7 +28,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 		goto end;
 	}
 
-	server_state = SERVER_STATE::CONNECTING;
+	server_state = CONN_STATE::CONNECTING;
 
 	if (connect_to_from() != true)
 	{
@@ -36,7 +36,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 		goto end;
 	}
 
-	from_state = FROM_STATE::CONNECTING;
+	from_state = CONN_STATE::CONNECTING;
 
 	ret = true;
 end:
@@ -76,12 +76,12 @@ void ipm_client_tunnel::reset()
 {
 	server_addr_len = 0;
 	from_server_addr_len = 0;
-	max_buffer = 1024 * 1024;
-	from_state = FROM_STATE::IDLE;
-	server_state = SERVER_STATE::IDLE;
-	server_write_need_flush = false;
+	max_buffer = DEF_MAX_BUFFER;
+	from_state = CONN_STATE::IDLE;
+	server_state = CONN_STATE::IDLE;
+	from_flush_state = FLUSH_STATE::NORMAL;
+	server_flush_state = FLUSH_STATE::NORMAL;
 	server_bufferevent = NULL;
-	from_write_need_flush = false;
 	from_bufferevent = NULL;
 }
 
@@ -92,10 +92,109 @@ void ipm_client_tunnel::on_fail()
 		ptr_interface->on_interface_ipm_tunnel_client_fail(index);
 }
 
+void ipm_client_tunnel::on_server_fail()
+{
+	slog_debug("client_tunnel on_server_fail %llu", index);
+
+	// 第二次调用不处理
+	if (server_state == CONN_STATE::BROKEN)
+		return;
+
+	server_state = CONN_STATE::BROKEN;
+
+	// 对方状态挂了直接失败
+	if (from_state != CONN_STATE::RUNNING)
+		return on_fail();
+
+	// 清除后退出
+	{
+		struct evbuffer* input = bufferevent_get_input(server_bufferevent);
+		struct evbuffer* output = bufferevent_get_output(from_bufferevent);
+
+		if (evbuffer_add_buffer(output, input) != 0)
+		{
+			slog_debug("evbuffer_add_buffer error");
+			return on_fail();
+		}
+
+		if (evbuffer_get_length(bufferevent_get_output(from_bufferevent)) == 0)
+		{
+			// 没有任务
+			slog_debug("close no flush data");
+			return on_fail();
+		}
+
+		// 关闭读，写到0为止
+		bufferevent_setwatermark(from_bufferevent, EV_WRITE, 0, 0);
+		if (bufferevent_disable(from_bufferevent, EV_READ) != 0)
+		{
+			slog_debug("bufferevent_disable fail");
+			return on_from_fail();
+		}
+
+		// 关闭server_bufferevent，防止回调莫名其妙的事件
+		if (server_bufferevent)
+		{
+			bufferevent_free(server_bufferevent);
+			server_bufferevent = NULL;
+		}
+
+		from_flush_state = FLUSH_STATE::FLUSH_AND_EXIT;
+	}
+}
+
+void ipm_client_tunnel::on_from_fail()
+{
+	slog_debug("client_tunnel on_from_fail %llu", index);
+
+	// 第二次调用不处理
+	if (from_state == CONN_STATE::BROKEN)
+		return;
+
+	from_state = CONN_STATE::BROKEN;
+
+	if (server_state != CONN_STATE::RUNNING)
+		return on_fail();
+
+	// 清除后退出
+	{
+		struct evbuffer* input = bufferevent_get_input(from_bufferevent);
+		struct evbuffer* output = bufferevent_get_output(server_bufferevent);
+
+		if (evbuffer_add_buffer(output, input) != 0)
+		{
+			slog_debug("evbuffer_add_buffer error");
+			return on_fail();
+		}
+
+		if (evbuffer_get_length(bufferevent_get_output(server_bufferevent)) == 0)
+		{
+			// 没有任务
+			slog_debug("close no flush data");
+			return on_fail();
+		}
+
+		// 关闭读，写到0为止
+		bufferevent_setwatermark(server_bufferevent, EV_WRITE, 0, 0);
+		if (bufferevent_disable(server_bufferevent, EV_READ) != 0)
+		{
+			slog_debug("bufferevent_disable fail");
+			return on_server_fail();
+		}
+
+		// 关闭from_bufferevent，防止回调莫名其妙的事件
+		if (from_bufferevent)
+		{
+			bufferevent_free(from_bufferevent);
+			from_bufferevent = NULL;
+		}
+
+		server_flush_state = FLUSH_STATE::FLUSH_AND_EXIT;
+	}
+}
+
 void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferevent* bev)
 {
-	bool ret = false;
-
 #if VERBOSE_DEBUG
 	slog_debug("tunnel %llu server recv data", (unsigned long long)index);
 #endif
@@ -107,7 +206,7 @@ void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferev
 		if (evbuffer_add_buffer(output, input) != 0)
 		{
 			slog_debug("evbuffer_add_buffer error");
-			goto end;
+			return on_fail();
 		}
 
 		// 超标了，就不读了，等写一半后再说
@@ -117,35 +216,34 @@ void ipm_client_tunnel::on_server_bufferevent_data_read_callback(struct bufferev
 			if (bufferevent_disable(bev, EV_READ) != 0)
 			{
 				slog_debug("bufferevent_disable error");
-				goto end;
+				return on_server_fail();
 			}
-			from_write_need_flush = true;
+			from_flush_state = FLUSH_STATE::FLUSH_AND_REREAD;
 		}
 	}
-
-	ret = true;
-end:
-	if (ret != true)
-		on_fail();
-	return;
 }
 
 void ipm_client_tunnel::on_server_bufferevent_data_write_callback(struct bufferevent* bev)
 {
-	if (server_write_need_flush)
+	if (server_flush_state == FLUSH_STATE::FLUSH_AND_REREAD)
 	{
 		bufferevent_setwatermark(bev, EV_WRITE, 0, 0);
-		bufferevent_enable(from_bufferevent, EV_READ);
-		server_write_need_flush = false;
+		if (bufferevent_enable(from_bufferevent, EV_READ) != 0)
+		{
+			slog_debug("bufferevent_enable fail");
+			return on_from_fail();
+		}
+		server_flush_state = FLUSH_STATE::NORMAL;
 	}
-
+	else if (server_flush_state == FLUSH_STATE::FLUSH_AND_EXIT)
+	{
+		return on_fail();
+	}
 }
 
 void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
 	slog_debug("tunnel server event %llu, flag = %u", index, (unsigned int)flag);
-
-	server_state = SERVER_STATE::IDLE;
 
 	if (flag & BEV_EVENT_READING) {
 		slog_debug("server BEV_EVENT_READING error");
@@ -157,38 +255,33 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 
 	if (flag & BEV_EVENT_ERROR) {
 		slog_debug("server BEV_EVENT_ERROR error");
-		on_fail();
-		return;
+		return on_server_fail();
 	}
 
 	if (flag & BEV_EVENT_TIMEOUT) {
 		slog_debug("server BEV_EVENT_TIMEOUT error");
-		on_fail();
-		return;
+		return on_server_fail();
 	}
 
 	if (flag & BEV_EVENT_EOF) {
 		slog_debug("server BEV_EVENT_EOF error");
-		on_fail();
-		return;
+		return on_server_fail();
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		// 发送
 		slog_debug("server BEV_EVENT_CONNECTED");
-		server_state = SERVER_STATE::RUNNING;
+		server_state = CONN_STATE::RUNNING;
 		if (send_penetrate(bev) != true)
 		{
 			slog_debug("send_penetrate error");
-			on_fail();
-			return;
+			return on_server_fail();
 		}
 	}
 }
 
 void ipm_client_tunnel::on_from_bufferevent_data_read_callback(struct bufferevent* bev)
 {
-	bool ret = false;
 
 #if VERBOSE_DEBUG
 	slog_debug("tunnel %llu from recv data", (unsigned long long)index);
@@ -201,7 +294,7 @@ void ipm_client_tunnel::on_from_bufferevent_data_read_callback(struct buffereven
 		if (evbuffer_add_buffer(output, input) != 0)
 		{
 			slog_debug("evbuffer_add_buffer error");
-			goto end;
+			return on_fail();
 		}
 
 		// 超标了，就不读了，等写一半后再说
@@ -211,35 +304,34 @@ void ipm_client_tunnel::on_from_bufferevent_data_read_callback(struct buffereven
 			if (bufferevent_disable(bev, EV_READ) != 0)
 			{
 				slog_debug("bufferevent_disable error");
-				goto end;
+				return on_from_fail();
 			}
-			server_write_need_flush = true;
+			server_flush_state = FLUSH_STATE::FLUSH_AND_REREAD;
 		}
 	}
-
-	ret = true;
-end:
-	if (ret != true)
-		on_fail();
-	return;
 }
 
 void ipm_client_tunnel::on_from_bufferevent_data_write_callback(struct bufferevent* bev)
 {
-	if (from_write_need_flush)
+	if (from_flush_state == FLUSH_STATE::FLUSH_AND_REREAD)
 	{
 		bufferevent_setwatermark(bev, EV_WRITE, 0, 0);
-		bufferevent_enable(server_bufferevent, EV_READ);
-		from_write_need_flush = false;
+		if (bufferevent_enable(server_bufferevent, EV_READ) != 0)
+		{
+			slog_debug("bufferevent_enable fail");
+			return on_server_fail();
+		}
+		server_flush_state = FLUSH_STATE::NORMAL;
 	}
-
+	else if (from_flush_state == FLUSH_STATE::FLUSH_AND_EXIT)
+	{
+		return on_fail();
+	}
 }
 
 void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
 	slog_debug("tunnel from event %llu, flag = %u", index, (unsigned int)flag);
-
-	from_state = FROM_STATE::IDLE;
 
 	if (flag & BEV_EVENT_READING) {
 		slog_error("from BEV_EVENT_READING error");
@@ -251,25 +343,22 @@ void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* b
 
 	if (flag & BEV_EVENT_ERROR) {
 		slog_error("from BEV_EVENT_ERROR error");
-		on_fail();
-		return;
+		return on_from_fail();
 	}
 
 	if (flag & BEV_EVENT_TIMEOUT) {
 		slog_error("from BEV_EVENT_TIMEOUT error");
-		on_fail();
-		return;
+		return on_from_fail();
 	}
 
 	if (flag & BEV_EVENT_EOF) {
 		slog_error("from BEV_EVENT_EOF error");
-		on_fail();
-		return;
+		return on_from_fail();
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		slog_info("from BEV_EVENT_CONNECTED, done");
-		from_state = FROM_STATE::RUNNING;
+		from_state = CONN_STATE::RUNNING;
 	}
 }
 

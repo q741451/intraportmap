@@ -100,7 +100,7 @@ void intraportmap::reset()
 	is_server = true;
 	is_state_init = false;
 	client_reconn_time = 15;
-	max_buffer = 1024 * 1024;
+	max_buffer = DEF_MAX_BUFFER;
 	root_event_base = NULL;
 	signal_event = NULL;
 	if (sp_ipm_client)
