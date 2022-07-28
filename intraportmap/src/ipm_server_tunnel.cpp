@@ -179,7 +179,7 @@ void ipm_server_tunnel::on_client_fail()
 
 void ipm_server_tunnel::on_to_fail()
 {
-	slog_debug("server_tunnel on_to_fail %llu", to_fd);
+	slog_debug("server_tunnel on_to_fail %llu", (unsigned long long)to_fd);
 
 	// 第二次调用不处理
 	if (to_state == CONN_STATE::BROKEN)
