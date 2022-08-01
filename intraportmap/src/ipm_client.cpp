@@ -301,8 +301,15 @@ void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
+		slog_info("BEV_EVENT_CONNECTED");
+		if (util::set_evutil_socket_keepalive(bufferevent_getfd(bev)) != true)
+		{
+			slog_error("set_evutil_socket_keepalive error");
+			on_fail();
+			return;
+		}
 		// ·¢ËÍ
-		slog_info("BEV_EVENT_CONNECTED, now sending alloc");
+		slog_info("Send alloc");
 		if (send_alloc(bev) != true)
 		{
 			slog_error("send_alloc error");

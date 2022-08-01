@@ -6,13 +6,15 @@
 #endif
 
 #ifdef _WIN32
-#include <winsock2.h>
+#include <Winsock2.h>
 #include <ws2tcpip.h>
+#include <Mstcpip.h>
 #include "getopt/getopt.h"
 #else
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #endif

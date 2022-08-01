@@ -271,6 +271,11 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 	if (flag & BEV_EVENT_CONNECTED) {
 		// ·¢ËÍ
 		slog_debug("server BEV_EVENT_CONNECTED");
+		if (util::set_evutil_socket_keepalive(bufferevent_getfd(bev)) != true)
+		{
+			slog_debug("set_evutil_socket_keepalive error");
+			return on_server_fail();
+		}
 		server_state = CONN_STATE::RUNNING;
 		if (send_penetrate(bev) != true)
 		{
@@ -358,6 +363,11 @@ void ipm_client_tunnel::on_from_bufferevent_event_callback(struct bufferevent* b
 
 	if (flag & BEV_EVENT_CONNECTED) {
 		slog_info("from BEV_EVENT_CONNECTED, done");
+		if (util::set_evutil_socket_keepalive(bufferevent_getfd(bev)) != true)
+		{
+			slog_debug("set_evutil_socket_keepalive error");
+			return on_from_fail();
+		}
 		from_state = CONN_STATE::RUNNING;
 	}
 }

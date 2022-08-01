@@ -177,6 +177,20 @@ void ipm_server::on_listener(struct evconnlistener* listener, evutil_socket_t fd
 	bool ret = false;
 	struct bufferevent* buff_bev = NULL;
 
+	if (fd == -1)
+	{
+		slog_error("fd == -1");
+		goto end;
+	}
+
+	slog_info("server new client %llu", (unsigned long long)fd);
+
+	if (util::set_evutil_socket_keepalive(fd) != true)
+	{
+		slog_error("set_evutil_socket_keepalive error");
+		goto end;
+	}
+
 	if ((buff_bev = bufferevent_socket_new(root_event_base, fd, BEV_OPT_CLOSE_ON_FREE)) == NULL)
 	{
 		slog_error("bufferevent_socket_new error");

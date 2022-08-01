@@ -180,6 +180,52 @@ unsigned short util::get_port_from_sockaddr(struct sockaddr* res)
 	}
 }
 
+bool util::set_evutil_socket_keepalive(evutil_socket_t fd)
+{
+	bool ret = false;
+	int keepAlive = 1;
+	int keepIdle = 40;
+	int keepInterval = 20;
+	int keepCount = 5;
+
+	if (fd == -1)
+		goto end;
+
+	if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&keepAlive, sizeof(keepAlive)) != 0)
+		goto end;
+
+#ifdef WIN32
+	{
+		struct tcp_keepalive in_keep_alive;
+		memset(&in_keep_alive, 0, sizeof(in_keep_alive));
+		unsigned long ul_in_len = sizeof(struct tcp_keepalive);
+		struct tcp_keepalive out_keep_alive;
+		memset(&out_keep_alive, 0, sizeof(out_keep_alive));
+		unsigned long ul_out_len = sizeof(struct tcp_keepalive);
+		unsigned long ul_bytes_return = 0;
+
+		in_keep_alive.onoff = 1;                                // 打开keepalive
+		in_keep_alive.keepaliveinterval = keepInterval * 1000;  // 发送keepalive心跳时间间隔-单位为毫秒
+		in_keep_alive.keepalivetime = keepIdle * 1000;          // 多长时间没有报文开始发送keepalive心跳包-单位为毫秒
+
+		if (WSAIoctl(fd, SIO_KEEPALIVE_VALS, (LPVOID)&in_keep_alive, ul_in_len,
+			(LPVOID)&out_keep_alive, ul_out_len, &ul_bytes_return, NULL, NULL) != 0)
+			goto end;
+	}
+#else
+	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (const char*)&keepIdle, sizeof(keepIdle)) != 0)
+		goto end;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (const char*)&keepInterval, sizeof(keepInterval)) != 0)
+		goto end;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (const char*)&keepCount, sizeof(keepCount)) != 0)
+		goto end;
+#endif
+
+	ret = true;
+end:
+	return ret;
+}
+
 unsigned long long util::ntohll(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
