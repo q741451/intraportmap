@@ -115,17 +115,38 @@ end:
 	return ret;
 }
 
-void util::set_checksum(char* data, size_t sz_len)
+void util::set_checksum(const char* key, char* data, size_t sz_len)
 {
-	if (sz_len >= 4)
-		*(unsigned int*)(data + sz_len - 4) = htonl(0xffffffff);
+	std::string key_str = key;
+	std::string check_buf;
+
+	if (sz_len < 4)
+		return;
+
+	check_buf.reserve(key_str.size() * 2 + sz_len - 4);
+
+	check_buf.append(key_str);
+	check_buf.append(data, sz_len - 4);
+	check_buf.append(key_str);
+
+	*(unsigned int*)(data + sz_len - 4) = htonl(calc::crc32(0, check_buf.c_str(), check_buf.size()));
 }
 
-bool util::check_checksum(const char* data, size_t sz_len)
+bool util::check_checksum(const char* key, const char* data, size_t sz_len)
 {
+	std::string key_str = key;
+	std::string check_buf;
+
 	if (sz_len < 4)
 		return false;
-	return *(unsigned int*)(data + sz_len - 4) == htonl(0xffffffff);
+
+	check_buf.reserve(key_str.size() * 2 + sz_len - 4);
+
+	check_buf.append(key_str);
+	check_buf.append(data, sz_len - 4);
+	check_buf.append(key_str);
+
+	return *(unsigned int*)(data + sz_len - 4) == htonl(calc::crc32(0, check_buf.c_str(), check_buf.size()));
 }
 
 std::string util::get_ipname_from_sockaddr(struct sockaddr* res)

@@ -50,6 +50,9 @@
     <ClCompile Include="src\ipm_server_tunnel.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\crc32.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx.h">
@@ -83,6 +86,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\ipm_types.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\crc32.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

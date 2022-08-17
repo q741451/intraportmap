@@ -23,7 +23,7 @@ public:
 
 public:
 	ipm_server_agent(struct event_base* base, interface_ipm_server_agent* ptr_interface_p);
-	bool init(addr_pkg_idx &addr_idx_api, struct bufferevent* client_bev);
+	bool init(addr_pkg_idx& addr_idx_api, struct bufferevent* client_bev, const char* key_c);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -49,6 +49,7 @@ private:
 	struct sockaddr_storage agent_addr;
 	unsigned int agent_addr_len;
 	addr_pkg_idx addr_idx;
+	std::string key;
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 	// 整个类的生命周期

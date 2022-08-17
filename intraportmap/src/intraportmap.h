@@ -39,6 +39,7 @@ private:
 	std::string to_server_port_name;
 	std::string from_server_name;
 	std::string from_server_port_name;
+	std::string key;
 	unsigned long long max_buffer;
 };
 

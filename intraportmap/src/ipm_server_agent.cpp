@@ -11,11 +11,12 @@ ipm_server_agent::ipm_server_agent(struct event_base* base, interface_ipm_server
 	reset();
 }
 
-bool ipm_server_agent::init(addr_pkg_idx& addr_idx_api, struct bufferevent* client_bev)
+bool ipm_server_agent::init(addr_pkg_idx& addr_idx_api, struct bufferevent* client_bev, const char* key_c)
 {
 	bool ret = false;
 
 	client_bufferevent = client_bev;
+	key = key_c;
 
 	bufferevent_setcb(client_bufferevent, ipm_server_agent_client_bufferevent_data_read_callback, ipm_server_agent_client_bufferevent_data_write_callback, ipm_server_agent_client_bufferevent_event_callback, this);
 
@@ -293,7 +294,7 @@ bool ipm_server_agent::send_penetrate(struct bufferevent* bev, unsigned long lon
 	memset(ptr_penetrate, 0, sz_len);
 	*(unsigned long long*)ptr_penetrate = util::htonll(index);
 
-	util::set_checksum((char*)ptr_penetrate, sz_len);
+	util::set_checksum(key.c_str(), (char*)ptr_penetrate, sz_len);
 	if (bufferevent_write(bev, ptr_penetrate, sz_len) != 0)
 	{
 		slog_error("send_penetrate error");

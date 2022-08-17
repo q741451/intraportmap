@@ -23,7 +23,7 @@ public:
 public:
 	ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p);
 
-	bool init(const char* server_name_c, const char* server_port_name_c, size_t max_buffer_sz);
+	bool init(const char* server_name_c, const char* server_port_name_c, const char* key_c, size_t max_buffer_sz);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -53,6 +53,7 @@ private:
 	SERVER_STATE server_state;
 	std::string server_name;
 	std::string server_port_name;
+	std::string key;
 	size_t max_buffer;
 	// 转换后的地址
 	struct sockaddr_storage server_addr;

@@ -38,6 +38,7 @@
 #include <event2/dns.h>
 
 #include "slog.h"
+#include "crc32.h"
 #include "util.h"
 #include "ipm_types.h"
 #include "ipm_server_tunnel.h"

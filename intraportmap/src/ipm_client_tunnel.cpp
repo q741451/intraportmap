@@ -12,7 +12,7 @@ ipm_client_tunnel::ipm_client_tunnel(struct event_base* base, interface_ipm_clie
 	reset();
 }
 
-bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, size_t max_buffer_sz)
+bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, const char* key_c, size_t max_buffer_sz)
 {
 	bool ret = false;
 
@@ -20,6 +20,7 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 	server_addr_len = server_addr_len_u;
 	from_server_addr = from_server_addr_ss;
 	from_server_addr_len = from_server_addr_len_u;
+	key = key_c;
 	max_buffer = max_buffer_sz;
 
 	if (connect_to_server() != true)
@@ -454,7 +455,7 @@ bool ipm_client_tunnel::send_penetrate(struct bufferevent* bev)
 	memset(ptr_penetrate, 0, sz_len);
 	*(unsigned long long*)ptr_penetrate = util::htonll(index);
 
-	util::set_checksum((char*)ptr_penetrate, sz_len);
+	util::set_checksum(key.c_str(), (char*)ptr_penetrate, sz_len);
 	if (bufferevent_write(bev, ptr_penetrate, sz_len) != 0)
 	{
 		slog_error("send_penetrate error");

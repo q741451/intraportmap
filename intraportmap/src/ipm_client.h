@@ -26,7 +26,7 @@ public:
 
 	bool init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c,
 		const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c,
-		unsigned int client_reconn_time_u, size_t max_buffer_sz);
+		unsigned int client_reconn_time_u, const char* key_c, size_t max_buffer_sz);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -62,6 +62,7 @@ private:
 	std::string to_server_port_name;
 	std::string from_server_name;
 	std::string from_server_port_name;
+	std::string key;
 	size_t max_buffer;
 	// 转换后的地址
 	struct sockaddr_storage server_addr;

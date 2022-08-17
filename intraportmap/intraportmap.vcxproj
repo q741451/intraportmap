@@ -169,6 +169,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\crc32.cpp" />
     <ClCompile Include="src\intraportmap.cpp" />
     <ClCompile Include="src\ipm_server_agent.cpp" />
     <ClCompile Include="src\ipm_client.cpp" />
@@ -192,6 +193,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\crc32.h" />
     <ClInclude Include="src\intraportmap.h" />
     <ClInclude Include="src\ipm_server_agent.h" />
     <ClInclude Include="src\ipm_client.h" />

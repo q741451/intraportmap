@@ -11,7 +11,7 @@ ipm_client::ipm_client(struct event_base* base, interface_ipm_client* ptr_interf
 	reset();
 }
 
-bool ipm_client::init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c, const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c, unsigned int client_reconn_time_u, size_t max_buffer_sz)
+bool ipm_client::init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c, const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c, unsigned int client_reconn_time_u, const char* key_c, size_t max_buffer_sz)
 {
 	bool ret = false;
 
@@ -22,6 +22,7 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 	from_server_name = from_server_name_c;
 	from_server_port_name = from_server_port_name_c;
 	client_reconn_time = client_reconn_time_u;
+	key = key_c;
 	max_buffer = max_buffer_sz;
 
 	if (util::getaddrinfo_first(to_server_name.c_str(), to_server_port_name.c_str(), to_server_addr, &to_server_addr_len) != true)
@@ -217,7 +218,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 				slog_error("evbuffer_remove error");
 				goto end;
 			}
-			if (util::check_checksum(s_data.c_str(), use_len) != true)
+			if (util::check_checksum(key.c_str(), s_data.c_str(), use_len) != true)
 			{
 				slog_error("check_checksum error");
 				goto end;
@@ -242,7 +243,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 				}
 
 				// ÔÊÐíÆô¶¯Ê§°Ü
-				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len, max_buffer) != true)
+				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len, key.c_str(), max_buffer) != true)
 				{
 					slog_error("st_tunnel->init error");
 					ret = true;
@@ -422,7 +423,7 @@ bool ipm_client::send_alloc(struct bufferevent* bev)
 	}
 	ptr_alloc_agent_package->addr_pkg.port = port;
 	ptr_alloc_agent_package->addr_pkg.is_ipv6 = is_ipv6;
-	util::set_checksum((char*)ptr_alloc_agent_package, buf_len);
+	util::set_checksum(key.c_str(), (char*)ptr_alloc_agent_package, buf_len);
 	if (bufferevent_write(bev, ptr_alloc_agent_package, buf_len) != 0)
 	{
 		slog_error("send_alloc error");

@@ -16,12 +16,13 @@ ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interf
 	reset();
 }
 
-bool ipm_server::init(const char* server_name_c, const char* server_port_name_c, size_t max_buffer_sz)
+bool ipm_server::init(const char* server_name_c, const char* server_port_name_c, const char* key_c, size_t max_buffer_sz)
 {
 	bool ret = false;
 
 	server_name = server_name_c;
 	server_port_name = server_port_name_c;
+	key = key_c;
 	max_buffer = max_buffer_sz;
 
 	if (util::getaddrinfo_first(server_name.c_str(), server_port_name.c_str(), server_addr, &server_addr_len) != true)
@@ -266,7 +267,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			slog_error("evbuffer_remove error");
 			goto end;
 		}
-		if (util::check_checksum((char*)ag_agent, use_len) != true)
+		if (util::check_checksum(key.c_str(), (char*)ag_agent, use_len) != true)
 		{
 			slog_error("check_checksum error");
 			goto end;
@@ -294,7 +295,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			slog_error("evbuffer_remove error");
 			goto end;
 		}
-		if (util::check_checksum(s_data.c_str(), use_len) != true)
+		if (util::check_checksum(key.c_str(), s_data.c_str(), use_len) != true)
 		{
 			slog_error("check_checksum error");
 			goto end;
@@ -498,7 +499,7 @@ bool ipm_server::alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg
 
 	sag = std::make_shared<ipm_server_agent>(root_event_base, this);
 	
-	if (sag->init(addr_idx, bev) != true)
+	if (sag->init(addr_idx, bev, key.c_str()) != true)
 		goto end;
 
 	msa_agent[bev] = sag;

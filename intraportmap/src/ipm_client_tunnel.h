@@ -29,7 +29,7 @@ public:
 
 	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u);
 
-	bool init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, size_t max_buffer_sz);
+	bool init(struct sockaddr_storage& server_addr_ss, unsigned int server_addr_len_u, struct sockaddr_storage& from_server_addr_ss, unsigned int from_server_addr_len_u, const char* key_c, size_t max_buffer_sz);
 	bool is_init();
 	bool exit();
 	void reset();
@@ -61,6 +61,7 @@ private:
 	unsigned int server_addr_len;
 	struct sockaddr_storage from_server_addr;
 	unsigned int from_server_addr_len;
+	std::string key;
 	size_t max_buffer;
 	// 2Á¬½Ó×´Ì¬£¬Çå¿Õ×´Ì¬
 	CONN_STATE from_state;

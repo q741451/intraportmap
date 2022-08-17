@@ -7,7 +7,7 @@ int main(int argc, char* argv[])
 
 	if (argc < 2)
 	{
-		printf("syntax: %s [-c] [-w client_reconn_time] [-s server:port] [-t to_server:to_port] [-f from_server:from_port] [-b buffer_per_tunnel]\r\n", argv[0]);
+		printf("syntax: %s [-c] [-s server:port] [-t to_server:to_port] [-f from_server:from_port] [-k key] [-w client_reconn_time] [-b buffer_per_tunnel]\r\n", argv[0]);
 		goto end;
 	}
 
