@@ -68,7 +68,7 @@ bool slog::log(const char* cTitile, const char* format, va_list pargs)
 	vsnprintf(cLog + nUseLen, nLen - nUseLen, format, args);
 	va_end(args);
 
-	printf(cLog);
+	printf("%s", cLog);
 
 	ret = true;
 // end:
