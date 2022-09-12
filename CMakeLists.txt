@@ -22,7 +22,7 @@ foreach(CompilerFlag ${CompilerFlags})
 endforeach()
 endif(MSVC)
 
-find_package(LibEvent REQUIRED)
+find_package(Libevent REQUIRED)
 find_path(LIBEVENT_INCLUDE_DIR event2/event.h REQUIRED)
 include_directories(${LIBEVENT_INCLUDE_DIR})
 
