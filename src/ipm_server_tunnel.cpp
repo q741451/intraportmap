@@ -77,46 +77,52 @@ void ipm_server_tunnel::reset()
 
 bool ipm_server_tunnel::client_connected(struct bufferevent* bev)
 {
-	bool ret = false;
+	bool bAccept = false;
 
 	client_bufferevent = bev;
 
 	bufferevent_setcb(client_bufferevent, ipm_client_tunnel_client_bufferevent_data_read_callback, ipm_client_tunnel_client_bufferevent_data_write_callback, ipm_client_tunnel_client_bufferevent_event_callback, this);
 	if (bufferevent_enable(client_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
+		// client的挂了直接结束，不Flush Buffer
 		slog_debug("bufferevent_enable error");
+		bufferevent_setcb(client_bufferevent, NULL, NULL, NULL, NULL);
+		client_bufferevent = NULL; // 挂了还给上层
+		on_fail();
 		goto end;
 	}
+
+	// 来访的状态正常，开启托管
+	client_state = CONN_STATE::RUNNING;
+	client_flush_state = FLUSH_STATE::NORMAL;
+
+	bAccept = true;
 
 	// to_bufferevent中途可能缓存满了，关闭读取，恢复
 	if (bufferevent_enable(to_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_debug("bufferevent_enable error");
+		// to挂了，Flush to到Client
+		on_to_fail();
 		goto end;
 	}
 
-	client_state = CONN_STATE::RUNNING;
-	client_flush_state = FLUSH_STATE::NORMAL;
+	// 状态均正常，开启转发
 
-	if (flush_client_data(false) != true)
+	if (flush_client_data() != true)
 	{
 		slog_debug("flush_client_data error");
 		goto end;
 	}
 
-	if (flush_to_data(false) != true)
+	if (flush_to_data() != true)
 	{
 		slog_debug("flush_to_data error");
 		goto end;
 	}
 
-	ret = true;
 end:
-	if (ret != true)
-	{
-		client_bufferevent = NULL; // 挂了还给上层
-	}
-	return ret;
+	return bAccept;
 }
 
 void ipm_server_tunnel::on_fail()
@@ -213,7 +219,7 @@ void ipm_server_tunnel::on_to_fail()
 		if (bufferevent_disable(client_bufferevent, EV_READ) != 0)
 		{
 			slog_debug("bufferevent_disable fail");
-			return on_to_fail();
+			return on_client_fail();
 		}
 
 		// 关闭to_bufferevent，防止回调莫名其妙的事件
@@ -233,7 +239,7 @@ void ipm_server_tunnel::on_client_bufferevent_data_read_callback(struct bufferev
 	slog_debug("tunnel %llu client recv data", (unsigned long long)to_fd);
 #endif
 
-	flush_client_data(true);
+	flush_client_data();
 }
 
 void ipm_server_tunnel::on_client_bufferevent_data_write_callback(struct bufferevent* bev)
@@ -365,7 +371,7 @@ void ipm_server_tunnel::on_to_bufferevent_event_callback(struct bufferevent* bev
 	}
 }
 
-bool ipm_server_tunnel::flush_client_data(bool is_event)
+bool ipm_server_tunnel::flush_client_data()
 {
 	struct evbuffer* input = bufferevent_get_input(client_bufferevent);
 	struct evbuffer* output = bufferevent_get_output(to_bufferevent);
@@ -374,8 +380,7 @@ bool ipm_server_tunnel::flush_client_data(bool is_event)
 	if (evbuffer_add_buffer(output, input) != 0)
 	{
 		slog_debug("evbuffer_add_buffer error");
-		if (is_event)
-			on_fail();
+		on_fail();
 		goto end;
 	}
 
@@ -386,8 +391,7 @@ bool ipm_server_tunnel::flush_client_data(bool is_event)
 		if (bufferevent_disable(client_bufferevent, EV_READ) != 0)
 		{
 			slog_debug("bufferevent_disable error");
-			if (is_event)
-				on_client_fail();
+			on_client_fail();
 			goto end;
 		}
 		to_flush_state = FLUSH_STATE::FLUSH_AND_REREAD;
@@ -398,7 +402,7 @@ end:
 	return ret;
 }
 
-bool ipm_server_tunnel::flush_to_data(bool is_event)
+bool ipm_server_tunnel::flush_to_data()
 {
 	struct evbuffer* input = bufferevent_get_input(to_bufferevent);
 	struct evbuffer* output = bufferevent_get_output(client_bufferevent);
@@ -407,8 +411,7 @@ bool ipm_server_tunnel::flush_to_data(bool is_event)
 	if (evbuffer_add_buffer(output, input) != 0)
 	{
 		slog_debug("evbuffer_add_buffer error");
-		if (is_event)
-			on_fail();
+		on_fail();
 		goto end;
 	}
 
@@ -419,8 +422,7 @@ bool ipm_server_tunnel::flush_to_data(bool is_event)
 		if (bufferevent_disable(to_bufferevent, EV_READ) != 0)
 		{
 			slog_debug("bufferevent_disable error");
-			if (is_event)
-				on_to_fail();
+			on_to_fail();
 			goto end;
 		}
 		client_flush_state = FLUSH_STATE::FLUSH_AND_REREAD;

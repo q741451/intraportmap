@@ -45,8 +45,8 @@ public:
 	void on_to_bufferevent_event_callback(struct bufferevent* bev, short what);
 
 private:
-	bool flush_client_data(bool is_event = true);
-	bool flush_to_data(bool is_event = true);
+	bool flush_client_data();
+	bool flush_to_data();
 
 private:
 	bool is_state_init;
