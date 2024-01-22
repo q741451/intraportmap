@@ -62,9 +62,6 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-          
-      - name: List files in the artifacts directory
-        run: ls -l ./artifacts/intraportmap-amd64
 
       - name: Upload Release Asset
         id: upload-release-asset-amd64 
@@ -73,7 +70,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/intraportmap
+          asset_path: ./artifacts/intraportmap-amd64/intraportmap
           asset_name: intraportmap-amd64
           asset_content_type: application/octet-stream
 
@@ -84,6 +81,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/intraportmap-i386
+          asset_path: ./artifacts/intraportmap-i386/intraportmap
           asset_name: intraportmap-i386
           asset_content_type: application/octet-stream
