@@ -20,12 +20,17 @@ AC_PROG_CXX
 AC_C_BIGENDIAN
 
 # Checks for libraries.
-AC_ARG_WITH(event,
+AC_ARG_WITH([event],
   AS_HELP_STRING([--with-event=DIR], [use a specific libevent library]),
-  [CFLAGS="$CFLAGS -I$withval/include"
-   CPPFLAGS="$CPPFLAGS -I$withval/include"
-   LDFLAGS="$LDFLAGS -L$withval/lib"]
+  [
+    EVENT_CFLAGS="-I$withval/include"
+    EVENT_LIBS="-L$withval/lib -levent"
+    AC_SUBST(EVENT_CFLAGS)
+    AC_SUBST(EVENT_LIBS)
+  ],
+  [AC_CHECK_LIB([event], [event_new], [], [AC_MSG_ERROR([Couldn't find libevent. Try installing libevent-devel.])])]
 )
+
 AC_CHECK_HEADERS([event2/event.h], [], [])
 AC_CHECK_LIB([event], [event_new], [LIBS="-levent $LIBS"], [AC_MSG_ERROR([Couldn't find libevent. Try installing libevent-devel@<:@el@:>@.])])
 
@@ -39,6 +44,19 @@ AC_TYPE_SIZE_T
 AC_CHECK_FUNCS([memset])
 
 AC_CONFIG_FILES([Makefile src/Makefile])
+
+AC_ARG_ENABLE([static],
+  [AS_HELP_STRING([--enable-static],[Enable static linking])],
+  [case "${enableval}" in
+     yes) static=yes ;;
+     no)  static=no ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-static]) ;;
+   esac],
+  [static=no])
+
+AS_IF([test "x$static" = "xyes"], [
+  LDFLAGS="$LDFLAGS -static"
+])
 
 AC_MSG_RESULT([config result: event($with_event)])
 AC_OUTPUT
