@@ -70,7 +70,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/intraportmap-amd64
+          asset_path: ./artifacts/intraportmap
           asset_name: intraportmap-amd64
           asset_content_type: application/octet-stream
 
