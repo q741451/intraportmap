@@ -62,6 +62,9 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
+          
+      - name: List files in the artifacts directory
+        run: ls -l ./artifacts/intraportmap-amd64
 
       - name: Upload Release Asset
         id: upload-release-asset-amd64 
