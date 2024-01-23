@@ -32,20 +32,19 @@ jobs:
           ./autogen.sh
           ./configure
           make
-          strip src/intraportmap
+          cp src/intraportmap intraportmap
+          strip intraportmap
+          tar -zcf intraportmap-${{ matrix.architecture }}.tar.gz intraportmap 
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: intraportmap-${{ matrix.architecture }}
-          path: src/intraportmap
+          path: intraportmap-${{ matrix.architecture }}.tar.gz
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        architecture: ['amd64', 'i386']
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -66,14 +65,15 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
-        id: upload-release-asset-${{ matrix.architecture }}
-        uses: actions/upload-release-asset@v1
+      - name: Upload Release Assets
+        run: |
+          for file in ./artifacts/intraportmap-*/*; do
+            if [ -f "$file" ]; then
+              asset_name=$(basename $file)
+              echo "Uploading asset: $asset_name"
+              gh release upload ${{ steps.create_release.outputs.tag_name }} "$file" --name "$asset_name" --repo ${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+            fi
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/intraportmap-${{ matrix.architecture }}/intraportmap
-          asset_name: intraportmap-${{ matrix.architecture }}
-          asset_content_type: application/octet-stream
 
