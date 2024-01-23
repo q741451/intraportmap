@@ -30,7 +30,7 @@ jobs:
           sudo apt-get install -y gcc-multilib
           sudo apt-get install -y libevent-dev
           ./autogen.sh
-          ./configure
+          ./configure --enable-static
           make
           cp src/intraportmap intraportmap
           strip intraportmap
