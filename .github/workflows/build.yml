@@ -66,6 +66,7 @@ jobs:
           sudo apt-get install -y gcc-multilib
           sudo apt-get install -y libevent-dev
           sudo apt-get install -y wget
+          sudo apt-get install -y zip
           sudo apt-get install -y mingw-w64
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxf libevent-2.1.12-stable.tar.gz
@@ -79,13 +80,13 @@ jobs:
           make
           cp src/intraportmap.exe intraportmap.exe
           ${{ matrix.architecture }}-w64-mingw32-strip intraportmap.exe
-          tar -zcf intraportmap-windows-${{ matrix.architecture }}.tar.gz intraportmap 
+          zip intraportmap-windows-${{ matrix.architecture }}.zip intraportmap.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: intraportmap-${{ matrix.architecture }}
-          path: intraportmap-windows-${{ matrix.architecture }}.tar.gz
+          path: intraportmap-windows-${{ matrix.architecture }}.zip
 
   release:
     needs: [build, build-win]
