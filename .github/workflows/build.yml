@@ -58,6 +58,7 @@ jobs:
           apt-get update
           apt-get install -y autoconf
           apt-get install -y wget
+          apt-get install -y make
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
