@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
 
 jobs:
   build:
@@ -43,6 +43,9 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+    matrix:
+        architecture: ['amd64', 'i386']
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
