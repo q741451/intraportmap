@@ -69,11 +69,11 @@ jobs:
         run: |
           for file in ./artifacts/intraportmap-*/*; do
             if [ -f "$file" ]; then
-              echo "Uploading asset: $file"
-              gh release upload ${{ steps.create_release.outputs.tag_name }} "$file" --clobber --repo q741451/intraportmap
+              asset_name=$(basename $file)
+              echo "Uploading asset: $asset_name"
+              gh release upload ${{ steps.create_release.outputs.tag_name }} "$file" --repo ${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
             fi
           done
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
