@@ -60,14 +60,14 @@ jobs:
           ./configure --enable-static --host=${{ matrix.cross_host }}
           make
           cp src/intraportmap intraportmap
-          ${{ matrix.cross_host }-strip intraportmap
-          tar -zcf intraportmap-${{ matrix.cross_host }.tar.gz intraportmap 
+          ${{ matrix.cross_host }}-strip intraportmap
+          tar -zcf intraportmap-${{ matrix.cross_host }}.tar.gz intraportmap 
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: intraportmap-${{ matrix.cross_host }
-          path: intraportmap-${{ matrix.cross_host }.tar.gz
+          name: intraportmap-${{ matrix.cross_host }}
+          path: intraportmap-${{ matrix.cross_host }}.tar.gz
 
   build-win:
     name: Build Windows
