@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        architecture: ['amd64', 'i386', 'arm32v5', 'arm32v7', 'arm64v8', 'mips', 'mipsle']
+        architecture: ['amd64']
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -41,9 +41,36 @@ jobs:
         with:
           name: intraportmap-${{ matrix.architecture }}
           path: intraportmap-linux-${{ matrix.architecture }}.tar.gz
+          
+  build-docker-cross:
+    name: Build linux
+    runs-on: ubuntu-20.04
+    container: "abcfy2/muslcc-toolchain-ubuntu:${{ matrix.cross_host }}"
+    strategy:
+      matrix:
+        cross_host: ['arm-linux-musleabi']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          sudo apt-get update
+          ./autogen.sh
+          ./configure --enable-static --host=${{ matrix.cross_host }}
+          make
+          cp src/intraportmap intraportmap
+          ${{ matrix.cross_host }-strip intraportmap
+          tar -zcf intraportmap-${{ matrix.cross_host }.tar.gz intraportmap 
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: intraportmap-${{ matrix.cross_host }
+          path: intraportmap-${{ matrix.cross_host }.tar.gz
 
   build-win:
-    name: Build
+    name: Build Windows
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -89,7 +116,7 @@ jobs:
           path: intraportmap-windows-${{ matrix.architecture }}.zip
 
   release:
-    needs: [build, build-win]
+    needs: [build, build-docker-cross, build-win]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
