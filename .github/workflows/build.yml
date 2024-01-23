@@ -66,16 +66,16 @@ jobs:
           sudo apt-get install -y gcc-multilib
           sudo apt-get install -y libevent-dev
           sudo apt-get install -y wget
-          sudo apt-get install -y g++-mingw-w64-${{ matrix.architecture }}
+          sudo apt-get install -y mingw-w64
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
-          tar -zxvf libevent-2.1.12-stable.tar.gz
+          tar -zxf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
-          ./configure --prefix=${GITHUB_WORKSPACE}/libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --host=${{ matrix.architecture }}-w64-mingw32 --enable-static --disable-shared --disable-openssl
+          ./configure --prefix=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --host=${{ matrix.architecture }}-w64-mingw32 --enable-static --disable-shared --disable-openssl
           make
           make install
           cd ..
           ./autogen.sh
-          ./configure LIBS="-lws2_32 -liphlpapi" --with-event=${GITHUB_WORKSPACE}/libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --enable-static --host=${{ matrix.architecture }}-w64-mingw32
+          ./configure LIBS="-lws2_32 -liphlpapi" --with-event=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --enable-static --host=${{ matrix.architecture }}-w64-mingw32
           make
           cp src/intraportmap.exe intraportmap.exe
           ${{ matrix.architecture }}-w64-mingw32-strip intraportmap.exe
