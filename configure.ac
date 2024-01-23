@@ -27,12 +27,17 @@ AC_ARG_WITH([event],
     EVENT_LIBS="-L$withval/lib -levent"
     AC_SUBST(EVENT_CFLAGS)
     AC_SUBST(EVENT_LIBS)
-  ],
-  [AC_CHECK_LIB([event], [event_new], [], [AC_MSG_ERROR([Couldn't find libevent. Try installing libevent-devel.])])]
-)
 
-AC_CHECK_HEADERS([event2/event.h], [], [])
-AC_CHECK_LIB([event], [event_new], [LIBS="-levent $LIBS"], [AC_MSG_ERROR([Couldn't find libevent. Try installing libevent-devel@<:@el@:>@.])])
+    CPPFLAGS="$CPPFLAGS $EVENT_CFLAGS"
+    LDFLAGS="$LDFLAGS $EVENT_LIBS"
+    AC_CHECK_HEADERS([event2/event.h], [], [AC_MSG_ERROR([Couldn't find event2/event.h in with event.])])
+    AC_CHECK_LIB([event], [event_new], [], [AC_MSG_ERROR([Couldn't find libevent in with event.])])
+  ],
+  [
+    AC_CHECK_HEADERS([event2/event.h], [], [AC_MSG_ERROR([Couldn't find event2/event.h. Try installing libevent-devel.])])
+    AC_CHECK_LIB([event], [event_new], [], [AC_MSG_ERROR([Couldn't find libevent. Try installing libevent-devel.])])
+  ]
+)
 
 # Checks for header files.
 AC_CHECK_HEADERS([signal.h memory.h sys/socket.h sys/syscall.h netinet/in.h arpa/inet.h unistd.h event2/event.h event2/listener.h event2/buffer.h event2/bufferevent.h event2/dns.h vector string memory map set])

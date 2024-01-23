@@ -1,7 +1,7 @@
 #ifndef _SLOG_H
 #define _SLOG_H
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 #define slog_debug(fmt, ...)	slog::debug("[%s\t%s\t%d]\t" ##fmt"\r\n",		__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__)
 #define slog_info(fmt, ...)		slog::info("[%s\t%s\t%d]\t" ##fmt"\r\n",		__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__)
 #define slog_warn(fmt, ...)		slog::warn("[%s\t%s\t%d]\t" ##fmt"\r\n",		__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__)

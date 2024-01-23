@@ -3,12 +3,15 @@
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
 #endif
 
 #ifdef _WIN32
-#include <Winsock2.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
-#include <Mstcpip.h>
+#include <mstcpip.h>
 #include "getopt/getopt.h"
 #else
 #include <sys/socket.h>

@@ -207,7 +207,6 @@ bool util::set_evutil_socket_keepalive(evutil_socket_t fd)
 	int keepAlive = 1;
 	int keepIdle = 40;
 	int keepInterval = 20;
-	int keepCount = 5;
 
 	if (fd == -1)
 		goto end;
@@ -238,8 +237,11 @@ bool util::set_evutil_socket_keepalive(evutil_socket_t fd)
 		goto end;
 	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (const char*)&keepInterval, sizeof(keepInterval)) != 0)
 		goto end;
-	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (const char*)&keepCount, sizeof(keepCount)) != 0)
-		goto end;
+	{
+		int keepCount = 5;
+		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (const char*)&keepCount, sizeof(keepCount)) != 0)
+			goto end;
+	}
 #endif
 
 	ret = true;
