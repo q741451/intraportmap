@@ -55,7 +55,7 @@ jobs:
 
       - name: Build
         run: |
-          sudo apt-get update
+          apt-get update
           ./autogen.sh
           ./configure --enable-static --host=${{ matrix.cross_host }}
           make
