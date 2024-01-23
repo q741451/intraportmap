@@ -34,13 +34,13 @@ jobs:
           make
           cp src/intraportmap intraportmap
           strip intraportmap
-          tar -zcf intraportmap-${{ matrix.architecture }}.tar.gz intraportmap 
+          tar -zcf intraportmap-linux-${{ matrix.architecture }}.tar.gz intraportmap 
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: intraportmap-${{ matrix.architecture }}
-          path: intraportmap-${{ matrix.architecture }}.tar.gz
+          path: intraportmap-linux-${{ matrix.architecture }}.tar.gz
 
   build-win:
     name: Build
