@@ -56,7 +56,7 @@ jobs:
       - name: Build
         run: |
           apt-get update
-          apt-get install -y autoreconf
+          apt-get install -y autoconf
           ./autogen.sh
           ./configure --enable-static --host=${{ matrix.cross_host }}
           make
