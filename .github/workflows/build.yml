@@ -1,8 +1,5 @@
 name: Build and Release
 
-env:
-  ARCHITECTURES: 'amd64 i386'
-
 on:
   push:
     tags:
@@ -14,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        architecture: ${{ fromJson(env.ARCHITECTURES) }}
+        architecture: ['amd64', 'i386']
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
