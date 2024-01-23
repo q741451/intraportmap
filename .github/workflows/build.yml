@@ -42,8 +42,53 @@ jobs:
           name: intraportmap-${{ matrix.architecture }}
           path: intraportmap-${{ matrix.architecture }}.tar.gz
 
+  build-win:
+    name: Build
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        architecture: ['x86-64', 'i686']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        with:
+          platforms: amd64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+          sudo apt-get install -y libevent-dev
+          sudo apt-get install -y wget
+          sudo apt-get install g++-mingw-w64-${{ matrix.architecture }}
+          wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          tar -zxvf libevent-2.1.12-stable.tar.gz
+          cd libevent-2.1.12-stable/
+          ./configure --prefix=./install-bin/windows-${{ matrix.architecture }} --host=${{ matrix.architecture }}-w64-mingw32 --enable-static --disable-shared --disable-openssl
+          make
+          make install
+          cd ..
+          ./autogen.sh
+          ./configure LIBS="-lws2_32 -liphlpapi" --with-event=./libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --enable-static --host=${{ matrix.architecture }}-w64-mingw32
+          make
+          cp src/intraportmap.exe intraportmap.exe
+          ${{ matrix.architecture }}-w64-mingw32-strip intraportmap.exe
+          tar -zcf intraportmap-windows-${{ matrix.architecture }}.tar.gz intraportmap 
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: intraportmap-${{ matrix.architecture }}
+          path: intraportmap-windows-${{ matrix.architecture }}.tar.gz
+
   release:
-    needs: build
+    needs: build, build-win
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
