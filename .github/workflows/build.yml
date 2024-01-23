@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        architecture: ['x86-64', 'i686']
+        architecture: ['x86_64', 'i686']
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
