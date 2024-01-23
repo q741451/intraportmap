@@ -71,7 +71,7 @@ jobs:
             if [ -f "$file" ]; then
               asset_name=$(basename $file)
               echo "Uploading asset: $asset_name"
-              gh release upload ${{ steps.create_release.outputs.tag_name }} "$file" --repo ${{ github.repository }}
+              gh release upload ${GITHUB_REF#refs/tags/} "$file" --repo ${{ github.repository }}
             fi
           done
         env:
