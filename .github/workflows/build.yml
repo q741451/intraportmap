@@ -70,12 +70,13 @@ jobs:
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxvf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
-          ./configure --prefix=./install-bin/windows-${{ matrix.architecture }} --host=${{ matrix.architecture }}-w64-mingw32 --enable-static --disable-shared --disable-openssl
+          LIBEVENT_SRC_PATH=$(pwd)
+          ./configure --prefix=$(LIBEVENT_SRC_PATH)/install-bin/windows-${{ matrix.architecture }} --host=${{ matrix.architecture }}-w64-mingw32 --enable-static --disable-shared --disable-openssl
           make
           make install
           cd ..
           ./autogen.sh
-          ./configure LIBS="-lws2_32 -liphlpapi" --with-event=./libevent-2.1.12-stable/install-bin/windows-${{ matrix.architecture }} --enable-static --host=${{ matrix.architecture }}-w64-mingw32
+          ./configure LIBS="-lws2_32 -liphlpapi" --with-event=$(LIBEVENT_SRC_PATH)/install-bin/windows-${{ matrix.architecture }} --enable-static --host=${{ matrix.architecture }}-w64-mingw32
           make
           cp src/intraportmap.exe intraportmap.exe
           ${{ matrix.architecture }}-w64-mingw32-strip intraportmap.exe
