@@ -163,6 +163,6 @@ jobs:
         uses: geekyeggo/delete-artifact@v4
         with:
             name: |
-                *
+                intraportmap-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
