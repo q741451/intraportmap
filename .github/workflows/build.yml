@@ -159,3 +159,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Delete All Artifacts
+        uses: geekyeggo/delete-artifact@v4
+        with:
+            name: |
+                *
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
