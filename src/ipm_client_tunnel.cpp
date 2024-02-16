@@ -29,6 +29,13 @@ bool ipm_client_tunnel::init(struct sockaddr_storage& server_addr_ss, unsigned i
 		goto end;
 	}
 
+	// 要提前插入index信息，否则from事件可能触发data部分抢先
+	if (send_penetrate(server_bufferevent) != true)
+	{
+		slog_debug("send_penetrate error");
+		goto end;
+	}
+
 	server_state = CONN_STATE::CONNECTING;
 
 	if (connect_to_from() != true)
@@ -278,11 +285,6 @@ void ipm_client_tunnel::on_server_bufferevent_event_callback(struct bufferevent*
 			return on_server_fail();
 		}
 		server_state = CONN_STATE::RUNNING;
-		if (send_penetrate(bev) != true)
-		{
-			slog_debug("send_penetrate error");
-			return on_server_fail();
-		}
 	}
 }
 
