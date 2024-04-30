@@ -64,6 +64,7 @@ jobs:
           brew install automake
           brew install wget
           brew install gcc
+          brew reinstall -sv gcc
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
