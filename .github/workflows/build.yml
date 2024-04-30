@@ -63,16 +63,15 @@ jobs:
           brew install autoconf
           brew install automake
           brew install wget
-          brew install gcc
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
-          ./configure --prefix=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }} --enable-static --disable-shared --disable-openssl  CC=gcc-13 CXX=g++-13
+          ./configure --prefix=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }} --enable-static --disable-shared --disable-openssl
           make
           make install
           cd ..
           ./autogen.sh
-          LDFLAGS="-Wl,-ld_classic" ./configure --with-event=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }} --enable-static CC=gcc-13 CXX=g++-13
+          ./configure --with-event=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }}
           make
           cp src/intraportmap intraportmap
           strip intraportmap
