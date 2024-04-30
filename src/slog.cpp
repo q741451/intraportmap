@@ -59,7 +59,7 @@ bool slog::log(const char* cTitile, const char* format, va_list pargs)
 	sprintf_s(cLog, nLen, "%02u%02u%02u%02u%02u %s %08X ", now_time.tm_mon + 1, now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec, cTitile, GetCurrentThreadId());
 #else
 	localtime_r(&time_seconds, &now_time);
-	sprintf(cLog, "%02u%02u%02u%02u%02u %s %08X ", now_time.tm_mon + 1, now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec, cTitile, (unsigned int)syscall(SYS_gettid));
+	sprintf(cLog, "%02u%02u%02u%02u%02u %s ", now_time.tm_mon + 1, now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec, cTitile);
 #endif
 	
 	nUseLen = (unsigned int)strlen(cLog);
