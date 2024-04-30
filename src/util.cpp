@@ -233,7 +233,13 @@ bool util::set_evutil_socket_keepalive(evutil_socket_t fd)
 			goto end;
 	}
 #else
-	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (const char*)&keepIdle, sizeof(keepIdle)) != 0)
+#ifdef __APPLE__
+	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepIdle, sizeof(keepIdle)) != 0)
+		goto end;
+#else
+	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(keepIdle)) != 0)
+		goto end;
+#endif
 		goto end;
 	if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (const char*)&keepInterval, sizeof(keepInterval)) != 0)
 		goto end;
