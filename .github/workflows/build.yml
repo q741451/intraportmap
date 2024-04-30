@@ -48,6 +48,40 @@ jobs:
           name: intraportmap-${{ matrix.architecture }}
           path: intraportmap-linux-${{ matrix.architecture }}.tar.gz
           
+  build-macos-arm64:
+    name: Build macOS arm64
+    runs-on: macos-14
+    strategy:
+      matrix:
+        architecture: ['aarch64']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          brew install autoconf
+          brew install wget
+          wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          tar -zxf libevent-2.1.12-stable.tar.gz
+          cd libevent-2.1.12-stable/
+          ./configure --prefix=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }} --enable-static --disable-shared --disable-openssl
+          make
+          make install
+          cd ..
+          ./autogen.sh
+          ./configure --with-event=${{ github.workspace }}/libevent-2.1.12-stable/install-bin/${{ matrix.architecture }} --enable-static
+          make
+          cp src/intraportmap intraportmap
+          strip intraportmap
+          tar -zcf intraportmap-macos-${{ matrix.architecture }}.tar.gz intraportmap 
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: intraportmap-${{ matrix.architecture }}
+          path: intraportmap-macos-${{ matrix.architecture }}.tar.gz
+          
   build-docker-cross:
     name: Build linux
     runs-on: ubuntu-20.04
@@ -131,7 +165,7 @@ jobs:
           path: intraportmap-windows-${{ matrix.architecture }}.zip
 
   release:
-    needs: [build, build-docker-cross, build-win]
+    needs: [build, build-docker-cross, build-win, build-macos-arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
