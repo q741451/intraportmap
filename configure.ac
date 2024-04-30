@@ -60,7 +60,20 @@ AC_ARG_ENABLE([static],
   [static=no])
 
 AS_IF([test "x$static" = "xyes"], [
-  LDFLAGS="$LDFLAGS -static"
+    case "$host_os" in
+        linux*)
+            # For Linux, use -static to statically link everything
+            LDFLAGS="$LDFLAGS -static"
+            ;;
+        darwin*)
+            # For macOS, try static linking libgcc and libstdc++ (not full static linking as it's not supported)
+            LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
+            ;;
+        *)
+            # Default case for other operating systems, adjust as necessary
+            LDFLAGS="$LDFLAGS -static"
+            ;;
+    esac
 ])
 
 AC_MSG_RESULT([config result: event($with_event)])
