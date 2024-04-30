@@ -223,7 +223,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 				slog_error("check_checksum error");
 				goto end;
 			}
-			ret_val = util::ntohll(*(unsigned long long*)s_data.c_str());
+			ret_val = util::ntohllx(*(unsigned long long*)s_data.c_str());
 			if (ret_val == 0)
 			{
 				slog_error("RUNNING return error == 0");
@@ -415,7 +415,7 @@ bool ipm_client::send_alloc(struct bufferevent* bev)
 		goto end;
 
 	memset(ptr_alloc_agent_package, 0, buf_len);
-	ptr_alloc_agent_package->alloc_zero = util::htonll(0);
+	ptr_alloc_agent_package->alloc_zero = util::htonllx(0);
 	if (util::sockaddr_to_address((sockaddr*)&to_server_addr, ptr_alloc_agent_package->addr_pkg.ip, &port, &is_ipv6) != true)
 	{
 		slog_error("sockaddr_to_address error");

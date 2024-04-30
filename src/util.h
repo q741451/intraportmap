@@ -14,8 +14,8 @@ public:
 	static std::string get_portstr_from_sockaddr(struct sockaddr* addr_in);
 	static unsigned short get_port_from_sockaddr(struct sockaddr* addr_in);
 	static bool set_evutil_socket_keepalive(evutil_socket_t fd);
-	static unsigned long long ntohll(unsigned long long x);
-	static unsigned long long htonll(unsigned long long x);
+	static unsigned long long ntohllx(unsigned long long x);
+	static unsigned long long htonllx(unsigned long long x);
 	static std::string string_format(const char* fmt_str, ...);
 };
 

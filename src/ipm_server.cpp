@@ -245,7 +245,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	if ((buffer = evbuffer_pullup(input, use_len)) == NULL)
 		goto end;
 
-	index = util::ntohll(*(unsigned long long*)buffer);
+	index = util::ntohllx(*(unsigned long long*)buffer);
 	if (index == 0)
 	{
 		use_len = sizeof(alloc_agent_package_t);

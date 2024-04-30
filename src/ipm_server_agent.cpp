@@ -292,7 +292,7 @@ bool ipm_server_agent::send_penetrate(struct bufferevent* bev, unsigned long lon
 		goto end;
 
 	memset(ptr_penetrate, 0, sz_len);
-	*(unsigned long long*)ptr_penetrate = util::htonll(index);
+	*(unsigned long long*)ptr_penetrate = util::htonllx(index);
 
 	util::set_checksum(key.c_str(), (char*)ptr_penetrate, sz_len);
 	if (bufferevent_write(bev, ptr_penetrate, sz_len) != 0)

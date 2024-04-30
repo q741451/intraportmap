@@ -249,7 +249,7 @@ end:
 	return ret;
 }
 
-unsigned long long util::ntohll(unsigned long long x)
+unsigned long long util::ntohllx(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
 	unsigned long long ret_val_64 = 0;
@@ -262,7 +262,7 @@ unsigned long long util::ntohll(unsigned long long x)
 	return ret_val_64;
 }
 
-unsigned long long util::htonll(unsigned long long x)
+unsigned long long util::htonllx(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
 	unsigned long long ret_val_64 = 0;
