@@ -128,6 +128,28 @@ jobs:
           ${{ matrix.architecture }}-w64-mingw32-strip intraportmap.exe
           zip intraportmap-windows-${{ matrix.architecture }}.zip intraportmap.exe
 
+      # XP 兼容性断言。PE 的导入是加载期解析的，导入表里只要留着一个
+      # XP 没有的名字，进程就起不来，哪怕运行时压根走不到那段代码。
+      # 工具链或依赖换代时很容易悄悄引入新导入，所以在这里卡住
+      - name: Check imports are XP-safe
+        run: |
+          OBJDUMP=${{ matrix.architecture }}-w64-mingw32-objdump
+          $OBJDUMP -p intraportmap.exe | awk '/DLL Name:/{print toupper($3)}' | sort -u > dlls.txt
+          $OBJDUMP -p intraportmap.exe | awk '/^\t[0-9a-f]+\t/{print $NF}' | sort -u > syms.txt
+          echo "imports: $(wc -l < syms.txt) symbols from:"; cat dlls.txt
+          OK_DLL='^(ADVAPI32|KERNEL32|MSVCRT|SHELL32|WS2_32)\.DLL$'
+          VISTA_SYM='^(GetTickCount64|InitOnceExecuteOnce|InitializeSRWLock|AcquireSRWLock.*|ReleaseSRWLock.*|InitializeConditionVariable|SleepConditionVariable.*|Wake(All)?ConditionVariable|GetSystemTimePreciseAsFileTime|CancelIoEx|GetThreadId|WSAPoll|inet_ntop|inet_pton|if_nametoindex|if_indextoname|RegGetValue[AW]|CreateThreadpool.*)$'
+          rc=0
+          if grep -vE "$OK_DLL" dlls.txt; then
+            echo "::error::unexpected DLL import above, binary will not load on Windows XP"
+            rc=1
+          fi
+          if grep -E "$VISTA_SYM" syms.txt; then
+            echo "::error::Vista+ symbol imported above, binary will not load on Windows XP"
+            rc=1
+          fi
+          exit $rc
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
