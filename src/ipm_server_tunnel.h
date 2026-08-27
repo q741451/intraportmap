@@ -17,7 +17,7 @@ public:
 		RUNNING,
 		BROKEN,
 	};
-	enum class FLUSH_STATE : unsigned int // ·ÇRUNNINGÊ±Ò²ÓĞĞ§£¬CONNECTEDºóÅÜ
+	enum class FLUSH_STATE : unsigned int // éRUNNINGæ—¶ä¹Ÿæœ‰æ•ˆï¼ŒCONNECTEDåè·‘
 	{
 		NORMAL,
 		FLUSH_AND_REREAD,
@@ -51,20 +51,20 @@ private:
 private:
 	bool is_state_init;
 	interface_ipm_server_tunnel* ptr_interface;
-	// ±àºÅ
+	// ç¼–å·
 	evutil_socket_t to_fd;
-	// ÅäÖÃ
+	// é…ç½®
 	size_t max_buffer;
-	// ²»ÊÍ·ÅµÄ±äÁ¿
-	struct event_base* root_event_base;		// À´×ÔÍâ²¿
-	// 2Á¬½Ó×´Ì¬£¬Çå¿Õ×´Ì¬
+	// ä¸é‡Šæ”¾çš„å˜é‡
+	struct event_base* root_event_base;		// æ¥è‡ªå¤–éƒ¨
+	// 2è¿æ¥çŠ¶æ€ï¼Œæ¸…ç©ºçŠ¶æ€
 	CONN_STATE client_state;
 	CONN_STATE to_state;
 	FLUSH_STATE client_flush_state;
 	FLUSH_STATE to_flush_state;
-	// ±£ÁôµÄÁ¬½Ó£¬Íâ²¿´«Èë£¬±¾ÀàÊÍ·Å
-	struct bufferevent* client_bufferevent;	// ¿Í»§¶Ë
-	struct bufferevent* to_bufferevent;	// Á¬½Óµ½±»´úÀíÖ÷»ú
+	// ä¿ç•™çš„è¿æ¥ï¼Œå¤–éƒ¨ä¼ å…¥ï¼Œæœ¬ç±»é‡Šæ”¾
+	struct bufferevent* client_bufferevent;	// å®¢æˆ·ç«¯
+	struct bufferevent* to_bufferevent;	// è¿æ¥åˆ°è¢«ä»£ç†ä¸»æœº
 };
 
 #endif

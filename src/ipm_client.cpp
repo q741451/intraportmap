@@ -45,7 +45,7 @@ bool ipm_client::init(const char* server_name_c, const char* server_port_name_c,
 
 	ret = true;
 
-	// ¿ªÊ¼µÚÒ»²½£¬ÔÊĞíÊ§°Ü
+	// å¼€å§‹ç¬¬ä¸€æ­¥ï¼Œå…è®¸å¤±è´¥
 	if (dns_query_server() != true)
 	{
 		slog_error("dns_query_server error");
@@ -129,7 +129,7 @@ void ipm_client::on_interface_ipm_tunnel_client_fail(unsigned long long index)
 void ipm_client::on_fail()
 {
 	slog_info("client on_fail");
-	// ÇåÀíÈ«²¿ÁÙÊ±±äÁ¿
+	// æ¸…ç†å…¨éƒ¨ä¸´æ—¶å˜é‡
 	if (client_exit() != true)
 	{
 		slog_error("client_exit error");
@@ -139,7 +139,7 @@ void ipm_client::on_fail()
 
 	client_reset();
 
-	// ÉèÖÃ¶¨Ê±Æ÷
+	// è®¾ç½®å®šæ—¶å™¨
 	if (set_reconnect_timmer() != true)
 	{
 		on_fatal_fail();
@@ -170,7 +170,7 @@ void ipm_client::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result)
 		slog_info("client_connect_to_server [%s]:%s", util::get_ipname_from_sockaddr(rp->ai_addr).c_str(), util::get_portstr_from_sockaddr(rp->ai_addr).c_str());
 		memcpy(&server_addr, rp->ai_addr, rp->ai_addrlen);
 		server_addr_len = (unsigned int)rp->ai_addrlen;
-		// Ö»È¡µÚÒ»¸ö
+		// åªå–ç¬¬ä¸€ä¸ª
 		break;
 	}
 
@@ -205,7 +205,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 	unsigned long long ret_val = 0;
 	bool ret = false;
 
-	// ÅĞ¶ÏÊÇ·ñ³É¹¦
+	// åˆ¤æ–­æ˜¯å¦æˆåŠŸ
 	switch (client_state)
 	{
 	case ipm_client::CLIENT_STATE::RUNNING:
@@ -234,7 +234,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 				std::shared_ptr<ipm_client_tunnel> st_tunnel = std::make_shared<ipm_client_tunnel>(root_event_base, this, ret_val);
 				std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>>::iterator iter_tunnel;
 
-				// ÖØ¸´Ôò¸²¸Çµô
+				// é‡å¤åˆ™è¦†ç›–æ‰
 				if ((iter_tunnel = mst_tunnel.find(ret_val)) != mst_tunnel.end())
 				{
 					if (iter_tunnel->second->is_init())
@@ -242,7 +242,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 					mst_tunnel.erase(iter_tunnel);
 				}
 
-				// ÔÊĞíÆô¶¯Ê§°Ü
+				// å…è®¸å¯åŠ¨å¤±è´¥
 				if (st_tunnel->init(server_addr, server_addr_len, from_server_addr, from_server_addr_len, key.c_str(), max_buffer) != true)
 				{
 					slog_error("st_tunnel->init error");
@@ -250,7 +250,7 @@ void ipm_client::on_bufferevent_data_read(struct bufferevent* bev)
 					goto end;
 				}
 
-				// Æô¶¯³É¹¦
+				// å¯åŠ¨æˆåŠŸ
 				mst_tunnel[ret_val] = st_tunnel;
 			}
 		}
@@ -269,7 +269,7 @@ end:
 
 void ipm_client::on_bufferevent_data_write(struct bufferevent* bev)
 {
-	// Ğ´ÍêÁË
+	// å†™å®Œäº†
 }
 
 void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
@@ -309,7 +309,7 @@ void ipm_client::on_bufferevent_event(struct bufferevent* bev, short flag)
 			on_fail();
 			return;
 		}
-		// ·¢ËÍ
+		// å‘é€
 		slog_info("Send alloc");
 		if (send_alloc(bev) != true)
 		{
@@ -337,7 +337,7 @@ void ipm_client::on_timer_event(evutil_socket_t sig, short events)
 bool ipm_client::dns_query_server()
 {
 	bool ret = false;
-	evdns_getaddrinfo_request* request = NULL;	// ÎŞĞèÊÍ·Å
+	evdns_getaddrinfo_request* request = NULL;	// æ— éœ€é‡Šæ”¾
 	struct evutil_addrinfo hints;
 
 	memset(&hints, 0, sizeof(struct evutil_addrinfo));
@@ -352,7 +352,7 @@ bool ipm_client::dns_query_server()
 		goto end;
 	}
 
-	// request = NULLÊ±£¬ cbÒÑµ÷ÓÃ£¬ request²»ÎªNULL£¬Òì²½£¬Èç¹ûwinÏÂÃ»dnsÔòÈ¡Ïû£¬·ñÔò²»»Øµ÷
+	// request = NULLæ—¶ï¼Œ cbå·²è°ƒç”¨ï¼Œ requestä¸ä¸ºNULLï¼Œå¼‚æ­¥ï¼Œå¦‚æœwinä¸‹æ²¡dnsåˆ™å–æ¶ˆï¼Œå¦åˆ™ä¸å›è°ƒ
 	if ((request = evdns_getaddrinfo(server_evdns_base, server_name.c_str(), server_port_name.c_str(), &hints, ipm_client_evdns_getaddrinfo_callback, this)) != NULL)
 	{
 		if (evdns_base_count_nameservers(server_evdns_base) == 0)

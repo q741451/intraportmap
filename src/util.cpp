@@ -61,13 +61,13 @@ bool util::getaddrinfo_first(const char* host_name, const char* port_name, struc
 	for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
 		memcpy(&addr, rp->ai_addr, rp->ai_addrlen);
 		*addr_len = (unsigned int)rp->ai_addrlen;
-		// Ö»È¡µÚÒ»¸ö
+		// åªå–ç¬¬ä¸€ä¸ª
 		break;
 	}
 
 	if (host_name == NULL || strlen(host_name) == 0)
 	{
-		// µØÖ·È¡¿Õ±íÊ¾Í¬Ê±¼àÌıipv6£¬¸²¸ÇÄ¬ÈÏÉèÖÃ
+		// åœ°å€å–ç©ºè¡¨ç¤ºåŒæ—¶ç›‘å¬ipv6ï¼Œè¦†ç›–é»˜è®¤è®¾ç½®
 
 		struct sockaddr_in6 addr_in6_all;
 		memset(&addr_in6_all, 0, sizeof(addr_in6_all));
@@ -224,9 +224,9 @@ bool util::set_evutil_socket_keepalive(evutil_socket_t fd)
 		unsigned long ul_out_len = sizeof(struct tcp_keepalive);
 		unsigned long ul_bytes_return = 0;
 
-		in_keep_alive.onoff = 1;                                // ´ò¿ªkeepalive
-		in_keep_alive.keepaliveinterval = keepInterval * 1000;  // ·¢ËÍkeepaliveĞÄÌøÊ±¼ä¼ä¸ô-µ¥Î»ÎªºÁÃë
-		in_keep_alive.keepalivetime = keepIdle * 1000;          // ¶à³¤Ê±¼äÃ»ÓĞ±¨ÎÄ¿ªÊ¼·¢ËÍkeepaliveĞÄÌø°ü-µ¥Î»ÎªºÁÃë
+		in_keep_alive.onoff = 1;                                // æ‰“å¼€keepalive
+		in_keep_alive.keepaliveinterval = keepInterval * 1000;  // å‘é€keepaliveå¿ƒè·³æ—¶é—´é—´éš”-å•ä½ä¸ºæ¯«ç§’
+		in_keep_alive.keepalivetime = keepIdle * 1000;          // å¤šé•¿æ—¶é—´æ²¡æœ‰æŠ¥æ–‡å¼€å§‹å‘é€keepaliveå¿ƒè·³åŒ…-å•ä½ä¸ºæ¯«ç§’
 
 		if (WSAIoctl(fd, SIO_KEEPALIVE_VALS, (LPVOID)&in_keep_alive, ul_in_len,
 			(LPVOID)&out_keep_alive, ul_out_len, &ul_bytes_return, NULL, NULL) != 0)

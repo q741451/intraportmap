@@ -1,7 +1,7 @@
 #ifndef _IPM_SERVER_H
 #define _IPM_SERVER_H
 
-// 服务器端（一个）
+// 鏈嶅姟鍣ㄧ锛堜竴涓級
 
 class interface_ipm_server
 {
@@ -41,7 +41,7 @@ public:
 	void on_bufferevent_event(struct bufferevent* bev, short flag);
 
 private:
-	bool start_listener(const struct sockaddr* addr, int addr_length);		// 开启服务器
+	bool start_listener(const struct sockaddr* addr, int addr_length);		// 寮�鍚湇鍔″櫒
 	bool remove_bufferevent(bufferevent* buf_event);
 	bool close_and_remove_bufferevent(bufferevent* buf_event);
 	bool alloc_agent(struct bufferevent* bev, alloc_agent_package_t* pkg, bool& is_fatal);
@@ -55,17 +55,17 @@ private:
 	std::string server_port_name;
 	std::string key;
 	size_t max_buffer;
-	// 转换后的地址
+	// 杞崲鍚庣殑鍦板潃
 	struct sockaddr_storage server_addr;
 	unsigned int server_addr_len;
-	// 不释放的变量
-	struct event_base* root_event_base;		// 来自外部
-	// 整个类的生命周期
+	// 涓嶉噴鏀剧殑鍙橀噺
+	struct event_base* root_event_base;		// 鏉ヨ嚜澶栭儴
+	// 鏁翠釜绫荤殑鐢熷懡鍛ㄦ湡
 	struct evconnlistener* listener;
 	struct evconnlistener* listener6;
-	std::set<bufferevent*>	sbe_bufferevent;		// 第一步，缓存的，可以分配到tunnel或agent
-	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 连接+代理listen
-	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_agent>> asa_agent;		// 连接+代理listen
+	std::set<bufferevent*>	sbe_bufferevent;		// 绗竴姝ワ紝缂撳瓨鐨勶紝鍙互鍒嗛厤鍒皌unnel鎴朼gent
+	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 杩炴帴+浠ｇ悊listen
+	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_agent>> asa_agent;		// 杩炴帴+浠ｇ悊listen
 	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_fd
 };
 

@@ -17,8 +17,8 @@ public:
 	virtual void on_interface_ipm_client_fail();
 	virtual void on_interface_ipm_server_fail();
 
-public: // libevent¹ıÀ´µÄÊÂ¼ş
-	// ÖĞ¶Ï
+public: // libeventè¿‡æ¥çš„äº‹ä»¶
+	// ä¸­æ–­
 	void on_signal_event(evutil_socket_t sig, short events);
 
 private:

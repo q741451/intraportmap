@@ -10,7 +10,7 @@ public:
 	virtual bool on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd) = 0;
 };
 
-// ·şÎñÆ÷¶ËµÄÓÃ»§fd·şÎñÄ£¿é£¬¶à¸ö£¬listenÀ´·Ã¿ÍÁ¢¼´½¨Á¢
+// æœåŠ¡å™¨ç«¯çš„ç”¨æˆ·fdæœåŠ¡æ¨¡å—ï¼Œå¤šä¸ªï¼Œlistenæ¥è®¿å®¢ç«‹å³å»ºç«‹
 class ipm_server_agent
 {
 public:
@@ -39,24 +39,24 @@ public:
 	void on_listener(struct evconnlistener* listener, evutil_socket_t fd, struct sockaddr* sa, int socklen);
 
 private:
-	bool start_listener(const struct sockaddr* addr, int addr_length);		// ¿ªÆô·şÎñÆ÷
-	bool send_penetrate(struct bufferevent* bev, unsigned long long index);	// ·¢ËÍ¿ª±Ù¶Ë¿ÚĞÅÏ¢
+	bool start_listener(const struct sockaddr* addr, int addr_length);		// å¼€å¯æœåŠ¡å™¨
+	bool send_penetrate(struct bufferevent* bev, unsigned long long index);	// å‘é€å¼€è¾Ÿç«¯å£ä¿¡æ¯
 
 private:
 	bool is_state_init;
 	interface_ipm_server_agent* ptr_interface;
-	// ´«ÈëµÄµØÖ·
+	// ä¼ å…¥çš„åœ°å€
 	struct sockaddr_storage agent_addr;
 	unsigned int agent_addr_len;
 	addr_pkg_idx addr_idx;
 	std::string key;
-	// ²»ÊÍ·ÅµÄ±äÁ¿
-	struct event_base* root_event_base;		// À´×ÔÍâ²¿
-	// Õû¸öÀàµÄÉúÃüÖÜÆÚ
+	// ä¸é‡Šæ”¾çš„å˜é‡
+	struct event_base* root_event_base;		// æ¥è‡ªå¤–éƒ¨
+	// æ•´ä¸ªç±»çš„ç”Ÿå‘½å‘¨æœŸ
 	struct evconnlistener* listener;
 	struct evconnlistener* listener6;
-	// ±£ÁôµÄÁ¬½Ó£¬Íâ²¿´«Èë£¬±¾ÀàÊÍ·Å
-	struct bufferevent* client_bufferevent;	// ¿Í»§¶Ë
+	// ä¿ç•™çš„è¿æ¥ï¼Œå¤–éƒ¨ä¼ å…¥ï¼Œæœ¬ç±»é‡Šæ”¾
+	struct bufferevent* client_bufferevent;	// å®¢æˆ·ç«¯
 };
 
 #endif

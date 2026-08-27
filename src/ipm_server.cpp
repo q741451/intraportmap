@@ -249,13 +249,13 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	if (index == 0)
 	{
 		use_len = sizeof(alloc_agent_package_t);
-		// ¿ª±ÙĞÂµÄ·şÎñ
+		// å¼€è¾Ÿæ–°çš„æœåŠ¡
 		if (length < use_len)
 		{
 			ret = true;
 			goto end;
 		}
-		// ÒÑ×¼±¸ºÃ
+		// å·²å‡†å¤‡å¥½
 		ag_agent = (alloc_agent_package_t*)malloc(use_len);
 		if (ag_agent == NULL)
 		{
@@ -275,7 +275,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 		slog_info("alloc_agent client_bev = %p port = %u", bev, ntohl(ag_agent->addr_pkg.port));
 		if (alloc_agent(bev, ag_agent, is_fatal) != true)
 		{
-			// ´ËÊ±Î´ÍĞ¹Ü
+			// æ­¤æ—¶æœªæ‰˜ç®¡
 			slog_error("alloc_agent error");
 			goto end;
 		}
@@ -283,7 +283,7 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 	else
 	{
 		use_len = 12;
-		// Ñ°ÕÒ´ıÁ¬½ÓµÄTunnel
+		// å¯»æ‰¾å¾…è¿æ¥çš„Tunnel
 		if (length < use_len)
 		{
 			ret = true;
@@ -301,16 +301,16 @@ void ipm_server::on_bufferevent_data_read(struct bufferevent* bev)
 			goto end;
 		}
 		slog_info("join_tunnel_client index = %llu", index);
-		// ÒÑ×¼±¸ºÃ
+		// å·²å‡†å¤‡å¥½
 		if (join_tunnel_client(bev, index) != true)
 		{
-			// ´ËÊ±Î´ÍĞ¹Ü
+			// æ­¤æ—¶æœªæ‰˜ç®¡
 			slog_error("join_tunnel_client error");
 			goto end;
 		}
 	}
 
-	// ÒÑÍĞ¹Üremove buffer
+	// å·²æ‰˜ç®¡remove buffer
 	if (remove_bufferevent(bev) != true)
 	{
 		// fatal
@@ -338,7 +338,7 @@ end:
 
 void ipm_server::on_bufferevent_data_write(struct bufferevent* bev)
 {
-	// ²»ÓÃ´¦Àí
+	// ä¸ç”¨å¤„ç†
 }
 
 void ipm_server::on_bufferevent_event(struct bufferevent* bev, short flag)
@@ -378,7 +378,7 @@ void ipm_server::on_bufferevent_event(struct bufferevent* bev, short flag)
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
-		// Ó¦¸Ã²»»áÀ´Õâ¸ö
+		// åº”è¯¥ä¸ä¼šæ¥è¿™ä¸ª
 		slog_error("BEV_EVENT_CONNECTED ?");
 		on_fail();
 	}
@@ -406,7 +406,7 @@ bool ipm_server::start_listener(const struct sockaddr* addr, int addr_length)
 
 		if (memcmp(&((struct sockaddr_in6*)addr)->sin6_addr, &zero_in6.sin6_addr, sizeof(zero_in6.sin6_addr)) == 0)
 		{
-			// ¼àÌıËùÓĞ£¬ĞèÒªÍ¬Ê±¼àÌıipv4
+			// ç›‘å¬æ‰€æœ‰ï¼Œéœ€è¦åŒæ—¶ç›‘å¬ipv4
 
 			struct sockaddr_in addr_in4_all;
 			memset(&addr_in4_all, 0, sizeof(struct sockaddr_in));

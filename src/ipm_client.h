@@ -1,7 +1,7 @@
 #ifndef _IPM_CLIENT_H
 #define _IPM_CLIENT_H
 
-// ¿Í»§¶Ë£¨Ò»¸ö£©
+// å®¢æˆ·ç«¯ï¼ˆä¸€ä¸ªï¼‰
 class interface_ipm_client
 {
 public:
@@ -44,12 +44,12 @@ public:
 	void on_timer_event(evutil_socket_t sig, short events);
 
 private:
-	bool dns_query_server();				// ³¢ÊÔ·¢ÆğDNS²éÑ¯
-	bool client_connect_to_server(const struct sockaddr* addr, int addr_length);	// ³¢ÊÔÁ¬½Óµ½·şÎñÆ÷
-	bool send_alloc(struct bufferevent* bev);	// ·¢ËÍ¿ª±Ù¶Ë¿ÚĞÅÏ¢
-	bool client_exit();						// ÖØÁ¬Ö®Ç°×¼±¸
-	void client_reset();					// ÖØÁ¬Ö®Ç°×¼±¸
-	bool set_reconnect_timmer();				// ÖØÁ¬ÑÓ³Ù
+	bool dns_query_server();				// å°è¯•å‘èµ·DNSæŸ¥è¯¢
+	bool client_connect_to_server(const struct sockaddr* addr, int addr_length);	// å°è¯•è¿æ¥åˆ°æœåŠ¡å™¨
+	bool send_alloc(struct bufferevent* bev);	// å‘é€å¼€è¾Ÿç«¯å£ä¿¡æ¯
+	bool client_exit();						// é‡è¿ä¹‹å‰å‡†å¤‡
+	void client_reset();					// é‡è¿ä¹‹å‰å‡†å¤‡
+	bool set_reconnect_timmer();				// é‡è¿å»¶è¿Ÿ
 
 private:
 	interface_ipm_client* ptr_interface;
@@ -64,21 +64,21 @@ private:
 	std::string from_server_port_name;
 	std::string key;
 	size_t max_buffer;
-	// ×ª»»ºóµÄµØÖ·
+	// è½¬æ¢åçš„åœ°å€
 	struct sockaddr_storage server_addr;
 	unsigned int server_addr_len;
 	struct sockaddr_storage to_server_addr;
 	unsigned int to_server_addr_len;
 	struct sockaddr_storage from_server_addr;
 	unsigned int from_server_addr_len;
-	// ²»ÊÍ·ÅµÄ±äÁ¿
-	struct event_base* root_event_base;		// À´×ÔÍâ²¿
-	// Õû¸öÀàµÄÉúÃüÖÜÆÚ
-	struct event* timer_event;				// ¶¨Ê±Æ÷
-	struct evdns_base* server_evdns_base;	// Õû¸ö³ÌĞòÖ»²éÒ»¸ödns
+	// ä¸é‡Šæ”¾çš„å˜é‡
+	struct event_base* root_event_base;		// æ¥è‡ªå¤–éƒ¨
+	// æ•´ä¸ªç±»çš„ç”Ÿå‘½å‘¨æœŸ
+	struct event* timer_event;				// å®šæ—¶å™¨
+	struct evdns_base* server_evdns_base;	// æ•´ä¸ªç¨‹åºåªæŸ¥ä¸€ä¸ªdns
 	std::map<unsigned long long, std::shared_ptr<ipm_client_tunnel>> mst_tunnel;
-	// ÖØÁ¬ÉúÃüÖÜÆÚ(client)
-	struct bufferevent* server_bufferevent;	// Á¬½Óµ½·şÎñÆ÷
+	// é‡è¿ç”Ÿå‘½å‘¨æœŸ(client)
+	struct bufferevent* server_bufferevent;	// è¿æ¥åˆ°æœåŠ¡å™¨
 };
 
 

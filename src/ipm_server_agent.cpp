@@ -20,7 +20,7 @@ bool ipm_server_agent::init(addr_pkg_idx& addr_idx_api, struct bufferevent* clie
 
 	bufferevent_setcb(client_bufferevent, ipm_server_agent_client_bufferevent_data_read_callback, ipm_server_agent_client_bufferevent_data_write_callback, ipm_server_agent_client_bufferevent_event_callback, this);
 
-	// Ö»Ğ´²»¶Á
+	// åªå†™ä¸è¯»
 	if (bufferevent_enable(client_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_error("bufferevent_enable error");
@@ -61,7 +61,7 @@ end:
 		is_state_init = true;
 	else
 	{
-		client_bufferevent = NULL; // ¹ÒÁË»¹¸øÉÏ²ã
+		client_bufferevent = NULL; // æŒ‚äº†è¿˜ç»™ä¸Šå±‚
 		exit();
 		reset();
 	}
@@ -120,7 +120,7 @@ void ipm_server_agent::on_fail()
 
 void ipm_server_agent::on_client_bufferevent_data_read_callback(struct bufferevent* bev)
 {
-	// Ò»¶Á¾Í¹Ò
+	// ä¸€è¯»å°±æŒ‚
 	slog_error("agent client cant read %p", client_bufferevent);
 	on_fail();
 }
@@ -160,7 +160,7 @@ void ipm_server_agent::on_client_bufferevent_event_callback(struct bufferevent* 
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
-		// Ó¦¸Ã²»»áÀ´Õâ¸ö
+		// åº”è¯¥ä¸ä¼šæ¥è¿™ä¸ª
 		slog_error("BEV_EVENT_CONNECTED ?");
 		on_fail();
 	}
@@ -191,14 +191,14 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 		goto end;
 	}
 
-	// Í¨Öª¿Í»§¶Ë
+	// é€šçŸ¥å®¢æˆ·ç«¯
 	if (send_penetrate(client_bufferevent, (unsigned long long)fd) != true)
 	{
 		slog_error("send_penetrate error");
 		goto end;
 	}
 
-	// OK Í¨ÖªÉÏ²ã
+	// OK é€šçŸ¥ä¸Šå±‚
 	if (!ptr_interface)
 	{
 		slog_error("ptr_interface empty");
@@ -207,7 +207,7 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 
 	if (ptr_interface->on_interface_ipm_server_agent_new_fd_tunnel(client_bufferevent, buff_bev, fd) != true)
 	{
-		// ´ËÊ±Î´ÍĞ¹Ü
+		// æ­¤æ—¶æœªæ‰˜ç®¡
 		slog_error("on_interface_ipm_server_agent_new_fd_tunnel error");
 		goto end;
 	}
@@ -249,7 +249,7 @@ bool ipm_server_agent::start_listener(const struct sockaddr* addr, int addr_leng
 
 		if (memcmp(&((struct sockaddr_in6*)addr)->sin6_addr, &zero_in6.sin6_addr, sizeof(zero_in6.sin6_addr)) == 0)
 		{
-			// ¼àÌıËùÓĞ£¬ĞèÒªÍ¬Ê±¼àÌıipv4
+			// ç›‘å¬æ‰€æœ‰ï¼Œéœ€è¦åŒæ—¶ç›‘å¬ipv4
 
 			struct sockaddr_in addr_in4_all;
 			memset(&addr_in4_all, 0, sizeof(struct sockaddr_in));

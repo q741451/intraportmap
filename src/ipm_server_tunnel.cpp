@@ -27,7 +27,7 @@ bool ipm_server_tunnel::init(struct bufferevent* to_bev, size_t max_buffer_sz)
 	}
 
 	to_state = CONN_STATE::RUNNING;
-	to_flush_state = FLUSH_STATE::NORMAL;	// ´ËÊ±¶¼ÎÞÊý¾Ý£¬ËùÒÔNORMAL
+	to_flush_state = FLUSH_STATE::NORMAL;	// æ­¤æ—¶éƒ½æ— æ•°æ®ï¼Œæ‰€ä»¥NORMAL
 
 	ret = true;
 end:
@@ -35,7 +35,7 @@ end:
 		is_state_init = true;
 	else
 	{
-		to_bufferevent = NULL; // ¹ÒÁË»¹¸øÉÏ²ã
+		to_bufferevent = NULL; // æŒ‚äº†è¿˜ç»™ä¸Šå±‚
 		exit();
 		reset();
 	}
@@ -84,30 +84,30 @@ bool ipm_server_tunnel::client_connected(struct bufferevent* bev)
 	bufferevent_setcb(client_bufferevent, ipm_client_tunnel_client_bufferevent_data_read_callback, ipm_client_tunnel_client_bufferevent_data_write_callback, ipm_client_tunnel_client_bufferevent_event_callback, this);
 	if (bufferevent_enable(client_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
-		// clientµÄ¹ÒÁËÖ±½Ó½áÊø£¬²»Flush Buffer
+		// clientçš„æŒ‚äº†ç›´æŽ¥ç»“æŸï¼Œä¸Flush Buffer
 		slog_debug("bufferevent_enable error");
 		bufferevent_setcb(client_bufferevent, NULL, NULL, NULL, NULL);
-		client_bufferevent = NULL; // ¹ÒÁË»¹¸øÉÏ²ã
+		client_bufferevent = NULL; // æŒ‚äº†è¿˜ç»™ä¸Šå±‚
 		on_fail();
 		goto end;
 	}
 
-	// À´·ÃµÄ×´Ì¬Õý³££¬¿ªÆôÍÐ¹Ü
+	// æ¥è®¿çš„çŠ¶æ€æ­£å¸¸ï¼Œå¼€å¯æ‰˜ç®¡
 	client_state = CONN_STATE::RUNNING;
 	client_flush_state = FLUSH_STATE::NORMAL;
 
 	bAccept = true;
 
-	// to_buffereventÖÐÍ¾¿ÉÄÜ»º´æÂúÁË£¬¹Ø±Õ¶ÁÈ¡£¬»Ö¸´
+	// to_buffereventä¸­é€”å¯èƒ½ç¼“å­˜æ»¡äº†ï¼Œå…³é—­è¯»å–ï¼Œæ¢å¤
 	if (bufferevent_enable(to_bufferevent, EV_READ | EV_WRITE) != 0)
 	{
 		slog_debug("bufferevent_enable error");
-		// to¹ÒÁË£¬Flush toµ½Client
+		// toæŒ‚äº†ï¼ŒFlush toåˆ°Client
 		on_to_fail();
 		goto end;
 	}
 
-	// ×´Ì¬¾ùÕý³££¬¿ªÆô×ª·¢
+	// çŠ¶æ€å‡æ­£å¸¸ï¼Œå¼€å¯è½¬å‘
 
 	if (flush_client_data() != true)
 	{
@@ -136,17 +136,17 @@ void ipm_server_tunnel::on_client_fail()
 {
 	slog_debug("server_tunnel on_client_fail %llu", (unsigned long long)to_fd);
 
-	// µÚ¶þ´Îµ÷ÓÃ²»´¦Àí
+	// ç¬¬äºŒæ¬¡è°ƒç”¨ä¸å¤„ç†
 	if (client_state == CONN_STATE::BROKEN)
 		return;
 
 	client_state = CONN_STATE::BROKEN;
 
-	// ¶Ô·½×´Ì¬¹ÒÁËÖ±½ÓÊ§°Ü
+	// å¯¹æ–¹çŠ¶æ€æŒ‚äº†ç›´æŽ¥å¤±è´¥
 	if (to_state != CONN_STATE::RUNNING)
 		return on_fail();
 
-	// Çå³ýºóÍË³ö
+	// æ¸…é™¤åŽé€€å‡º
 	{
 		struct evbuffer* input = bufferevent_get_input(client_bufferevent);
 		struct evbuffer* output = bufferevent_get_output(to_bufferevent);
@@ -159,12 +159,12 @@ void ipm_server_tunnel::on_client_fail()
 
 		if (evbuffer_get_length(bufferevent_get_output(to_bufferevent)) == 0)
 		{
-			// Ã»ÓÐÈÎÎñ
+			// æ²¡æœ‰ä»»åŠ¡
 			slog_debug("close no flush data");
 			return on_fail();
 		}
 
-		// ¹Ø±Õ¶Á£¬Ð´µ½0ÎªÖ¹
+		// å…³é—­è¯»ï¼Œå†™åˆ°0ä¸ºæ­¢
 		bufferevent_setwatermark(to_bufferevent, EV_WRITE, 0, 0);
 		if (bufferevent_disable(to_bufferevent, EV_READ) != 0)
 		{
@@ -172,7 +172,7 @@ void ipm_server_tunnel::on_client_fail()
 			return on_to_fail();
 		}
 
-		// ¹Ø±Õserver_bufferevent£¬·ÀÖ¹»Øµ÷ÄªÃûÆäÃîµÄÊÂ¼þ
+		// å…³é—­server_buffereventï¼Œé˜²æ­¢å›žè°ƒèŽ«åå…¶å¦™çš„äº‹ä»¶
 		if (client_bufferevent)
 		{
 			bufferevent_free(client_bufferevent);
@@ -187,7 +187,7 @@ void ipm_server_tunnel::on_to_fail()
 {
 	slog_debug("server_tunnel on_to_fail %llu", (unsigned long long)to_fd);
 
-	// µÚ¶þ´Îµ÷ÓÃ²»´¦Àí
+	// ç¬¬äºŒæ¬¡è°ƒç”¨ä¸å¤„ç†
 	if (to_state == CONN_STATE::BROKEN)
 		return;
 
@@ -196,7 +196,7 @@ void ipm_server_tunnel::on_to_fail()
 	if (client_state != CONN_STATE::RUNNING)
 		return on_fail();
 
-	// Çå³ýºóÍË³ö
+	// æ¸…é™¤åŽé€€å‡º
 	{
 		struct evbuffer* input = bufferevent_get_input(to_bufferevent);
 		struct evbuffer* output = bufferevent_get_output(client_bufferevent);
@@ -209,12 +209,12 @@ void ipm_server_tunnel::on_to_fail()
 
 		if (evbuffer_get_length(bufferevent_get_output(client_bufferevent)) == 0)
 		{
-			// Ã»ÓÐÈÎÎñ
+			// æ²¡æœ‰ä»»åŠ¡
 			slog_debug("close no flush data");
 			return on_fail();
 		}
 
-		// ¹Ø±Õ¶Á£¬Ð´µ½0ÎªÖ¹
+		// å…³é—­è¯»ï¼Œå†™åˆ°0ä¸ºæ­¢
 		bufferevent_setwatermark(client_bufferevent, EV_WRITE, 0, 0);
 		if (bufferevent_disable(client_bufferevent, EV_READ) != 0)
 		{
@@ -222,7 +222,7 @@ void ipm_server_tunnel::on_to_fail()
 			return on_client_fail();
 		}
 
-		// ¹Ø±Õto_bufferevent£¬·ÀÖ¹»Øµ÷ÄªÃûÆäÃîµÄÊÂ¼þ
+		// å…³é—­to_buffereventï¼Œé˜²æ­¢å›žè°ƒèŽ«åå…¶å¦™çš„äº‹ä»¶
 		if (to_bufferevent)
 		{
 			bufferevent_free(to_bufferevent);
@@ -287,7 +287,7 @@ void ipm_server_tunnel::on_client_bufferevent_event_callback(struct bufferevent*
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
-		// ²»Ó¦¸ÃÀ´ÕâÀï
+		// ä¸åº”è¯¥æ¥è¿™é‡Œ
 		slog_debug("client BEV_EVENT_CONNECTED ?");
 		return on_fail();
 	}
@@ -310,7 +310,7 @@ void ipm_server_tunnel::on_to_bufferevent_data_read_callback(struct bufferevent*
 
 		if (evbuffer_get_length(input) >= max_buffer / 2)
 		{
-			// »ýÑ¹µÄÊý¾ÝÌ«´óÁË£¬ÏÈ²»¶ÁÁË£¬µÈflushºó¶Á
+			// ç§¯åŽ‹çš„æ•°æ®å¤ªå¤§äº†ï¼Œå…ˆä¸è¯»äº†ï¼Œç­‰flushåŽè¯»
 			if (bufferevent_disable(bev, EV_READ) != 0)
 			{
 				slog_debug("bufferevent_disable error");
@@ -365,7 +365,7 @@ void ipm_server_tunnel::on_to_bufferevent_event_callback(struct bufferevent* bev
 	}
 
 	if (flag & BEV_EVENT_CONNECTED) {
-		// ²»Ó¦¸ÃÀ´ÕâÀï
+		// ä¸åº”è¯¥æ¥è¿™é‡Œ
 		slog_debug("to BEV_EVENT_CONNECTED ?");
 		return on_fail();
 	}
@@ -384,7 +384,7 @@ bool ipm_server_tunnel::flush_client_data()
 		goto end;
 	}
 
-	// ³¬±êÁË£¬¾Í²»¶ÁÁË£¬µÈÐ´Ò»°ëºóÔÙËµ
+	// è¶…æ ‡äº†ï¼Œå°±ä¸è¯»äº†ï¼Œç­‰å†™ä¸€åŠåŽå†è¯´
 	if (evbuffer_get_length(output) >= max_buffer)
 	{
 		bufferevent_setwatermark(to_bufferevent, EV_WRITE, max_buffer / 2, max_buffer);
@@ -415,7 +415,7 @@ bool ipm_server_tunnel::flush_to_data()
 		goto end;
 	}
 
-	// ³¬±êÁË£¬¾Í²»¶ÁÁË£¬µÈÐ´Ò»°ëºóÔÙËµ
+	// è¶…æ ‡äº†ï¼Œå°±ä¸è¯»äº†ï¼Œç­‰å†™ä¸€åŠåŽå†è¯´
 	if (evbuffer_get_length(output) >= max_buffer)
 	{
 		bufferevent_setwatermark(client_bufferevent, EV_WRITE, max_buffer / 2, max_buffer);

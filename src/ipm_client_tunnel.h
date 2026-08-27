@@ -1,8 +1,8 @@
 #ifndef _IPM_TUNNEL_CLIENT_H
 #define _IPM_TUNNEL_CLIENT_H
 
-// Åä¶ÔÍê³ÉºóµÄ×ª·¢tunnel£¬¿Í»§¶ËÊÕµ½¿ØÖÆĞÅºÅ±àºÅÁ¢¼´½¨Á¢
-// ¿Í»§¶Ë£¨Ò»¸ö£©
+// é…å¯¹å®Œæˆåçš„è½¬å‘tunnelï¼Œå®¢æˆ·ç«¯æ”¶åˆ°æ§åˆ¶ä¿¡å·ç¼–å·ç«‹å³å»ºç«‹
+// å®¢æˆ·ç«¯ï¼ˆä¸€ä¸ªï¼‰
 class interface_ipm_client_tunnel
 {
 public:
@@ -20,7 +20,7 @@ public:
 		RUNNING,
 		BROKEN,
 	};
-	enum class FLUSH_STATE : unsigned int // ·ÇRUNNINGÊ±Ò²ÓĞĞ§£¬CONNECTEDºóÅÜ
+	enum class FLUSH_STATE : unsigned int // éRUNNINGæ—¶ä¹Ÿæœ‰æ•ˆï¼ŒCONNECTEDåè·‘
 	{
 		NORMAL,
 		FLUSH_AND_REREAD,
@@ -46,16 +46,16 @@ public:
 	void on_from_bufferevent_event_callback(struct bufferevent* bev, short what);
 
 private:
-	bool connect_to_server();		// ³¢ÊÔÁ¬½Óµ½·şÎñÆ÷
-	bool connect_to_from();			// ³¢ÊÔÁ¬½Óµ½±»´úÀíÖ÷»ú
-	bool send_penetrate(struct bufferevent* bev);	// ·¢ËÍ¿ª±Ù¶Ë¿ÚĞÅÏ¢
+	bool connect_to_server();		// å°è¯•è¿æ¥åˆ°æœåŠ¡å™¨
+	bool connect_to_from();			// å°è¯•è¿æ¥åˆ°è¢«ä»£ç†ä¸»æœº
+	bool send_penetrate(struct bufferevent* bev);	// å‘é€å¼€è¾Ÿç«¯å£ä¿¡æ¯
 
 private:
 	bool is_state_init;
 	interface_ipm_client_tunnel* ptr_interface;
-	// ²»ÊÍ·ÅµÄ±äÁ¿
-	struct event_base* root_event_base;		// À´×ÔÍâ²¿
-	// Ô¤ÖÃµÄµØÖ·
+	// ä¸é‡Šæ”¾çš„å˜é‡
+	struct event_base* root_event_base;		// æ¥è‡ªå¤–éƒ¨
+	// é¢„ç½®çš„åœ°å€
 	unsigned long long index;
 	struct sockaddr_storage server_addr;
 	unsigned int server_addr_len;
@@ -63,14 +63,14 @@ private:
 	unsigned int from_server_addr_len;
 	std::string key;
 	size_t max_buffer;
-	// 2Á¬½Ó×´Ì¬£¬Çå¿Õ×´Ì¬
+	// 2è¿æ¥çŠ¶æ€ï¼Œæ¸…ç©ºçŠ¶æ€
 	CONN_STATE from_state;
 	CONN_STATE server_state;
 	FLUSH_STATE from_flush_state;
 	FLUSH_STATE server_flush_state;
-	// ×ª·¢µÄbuffer
-	struct bufferevent* server_bufferevent;	// Á¬½Óµ½·şÎñÆ÷
-	struct bufferevent* from_bufferevent;	// Á¬½Óµ½±»´úÀíÖ÷»ú
+	// è½¬å‘çš„buffer
+	struct bufferevent* server_bufferevent;	// è¿æ¥åˆ°æœåŠ¡å™¨
+	struct bufferevent* from_bufferevent;	// è¿æ¥åˆ°è¢«ä»£ç†ä¸»æœº
 };
 
 #endif
