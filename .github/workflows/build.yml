@@ -53,7 +53,9 @@ jobs:
     container: "abcfy2/muslcc-toolchain-ubuntu:${{ matrix.cross_host }}"
     strategy:
       matrix:
-        cross_host: ['arm-linux-musleabi', 'aarch64-linux-musl', 'mips-linux-musl', 'mipsel-linux-musl', 'mips64-linux-musl', 'x86_64-linux-musl', 'i686-linux-musl']
+        # mips/mipsel 用软浮点：路由器常见的 MT7620/MT7621/AR9331 等 SoC 没有 FPU，
+        # 硬浮点产物一执行 COP1 指令就 SIGILL
+        cross_host: ['arm-linux-musleabi', 'aarch64-linux-musl', 'mips-linux-muslsf', 'mipsel-linux-muslsf', 'mips64-linux-musl', 'x86_64-linux-musl', 'i686-linux-musl']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
