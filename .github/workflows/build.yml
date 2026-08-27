@@ -20,7 +20,7 @@ jobs:
         architecture: ['aarch64']
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Build
         run: |
@@ -42,21 +42,21 @@ jobs:
           tar -zcf intraportmap-macos14-${{ matrix.architecture }}.tar.gz intraportmap 
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: intraportmap-macos14-${{ matrix.architecture }}
           path: intraportmap-macos14-${{ matrix.architecture }}.tar.gz
           
   build-docker-cross:
     name: Build linux
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container: "abcfy2/muslcc-toolchain-ubuntu:${{ matrix.cross_host }}"
     strategy:
       matrix:
         cross_host: ['arm-linux-musleabi', 'aarch64-linux-musl', 'mips-linux-musl', 'mipsel-linux-musl', 'mips64-linux-musl', 'x86_64-linux-musl', 'i686-linux-musl']
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Build
         run: |
@@ -82,28 +82,20 @@ jobs:
           tar -zcf intraportmap-${{ matrix.cross_host }}.tar.gz intraportmap 
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: intraportmap-${{ matrix.cross_host }}
           path: intraportmap-${{ matrix.cross_host }}.tar.gz
 
   build-win:
     name: Build Windows
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         architecture: ['x86_64', 'i686']
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        with:
-          platforms: amd64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: actions/checkout@v4
 
       - name: Build
         run: |
@@ -127,7 +119,7 @@ jobs:
           zip intraportmap-windows-${{ matrix.architecture }}.zip intraportmap.exe
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: intraportmap-windows-${{ matrix.architecture }}
           path: intraportmap-windows-${{ matrix.architecture }}.zip
@@ -135,34 +127,23 @@ jobs:
   release:
     needs: [build-docker-cross, build-win, build-macos-arm64]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Assets
+      - name: Flatten artifacts
         run: |
-          for file in ./artifacts/intraportmap-*/*; do
-            if [ -f "$file" ]; then
-              asset_name=$(basename $file)
-              echo "Uploading asset: $asset_name"
-              gh release upload ${GITHUB_REF#refs/tags/} "$file" --repo ${{ github.repository }}
-            fi
-          done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -l release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
