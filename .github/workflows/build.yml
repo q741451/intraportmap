@@ -90,20 +90,30 @@ jobs:
   build-win:
     name: Build Windows
     runs-on: ubuntu-latest
+    # 在容器里编译，把工具链版本钉死。裸 runner 上用 apt 装 mingw-w64，版本会跟着
+    # ubuntu-latest 漂：它从 20.04 挪到 24.04 时 mingw 从 7.0.0 变成 11.0.1，
+    # 在编译参数一字未改的情况下让 i686 产物大了 17%。
+    # ubuntu:20.04 提供 mingw-w64 7.0.0 + GCC 9.3.0，做法与上面各 musl job 一致。
+    container: "ubuntu:20.04"
     strategy:
       matrix:
         architecture: ['x86_64', 'i686']
     steps:
+      # 官方镜像很精简，连 git、ca-certificates 都没有，
+      # checkout 之前就要装好
+      - name: Install toolchain
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git wget zip make autoconf automake g++ mingw-w64
+          i686-w64-mingw32-g++ --version | head -1
+
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib
-          sudo apt-get install -y wget
-          sudo apt-get install -y zip
-          sudo apt-get install -y mingw-w64
           wget https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           tar -zxf libevent-2.1.12-stable.tar.gz
           cd libevent-2.1.12-stable/
