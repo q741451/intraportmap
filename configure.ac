@@ -11,9 +11,15 @@ AC_CONFIG_HEADERS([config.h])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
+# 只在调用者没有自带 -O 时才补默认优化级别。configure 追加的内容排在用户
+# 的 CXXFLAGS 之后，而 GCC 取最后一个 -O，不这样判断的话从命令行传 -Os
+# 会被这里的 -O2 覆盖掉
+AS_CASE([" $CXXFLAGS "], [*" -O"*], [ipm_have_opt=yes], [ipm_have_opt=no])
 AC_ARG_ENABLE([debug], [AC_HELP_STRING([ --enable-debug], [Build a debug version])],
               [CXXFLAGS="$CXXFLAGS -g -O0 -DDEBUG -std=c++0x -Wall"],
-              [CXXFLAGS="$CXXFLAGS -O2 -std=c++0x -Wall"])
+              [AS_IF([test "x$ipm_have_opt" = "xyes"],
+                     [CXXFLAGS="$CXXFLAGS -std=c++0x -Wall"],
+                     [CXXFLAGS="$CXXFLAGS -O2 -std=c++0x -Wall"])])
 
 AC_PROG_CC
 AC_PROG_CXX
