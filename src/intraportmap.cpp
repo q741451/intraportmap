@@ -23,9 +23,9 @@ bool intraportmap::init(int argc, char* argv[])
 	if (register_signal_event() != true)
 		goto end;
 
-	// TCP 和 UDP 是两条互不相干的通路，可以同时开。任一路致命失败都会
-	// event_base_loopbreak 结束整个进程 —— 有意为之，交给外部 supervisor 重启，
-	// 不做「只拆自己」的半死状态
+	// TCP 和 UDP 是两条互不相干的通路，可以同时开。TCP 侧的致命失败会
+	// event_base_loopbreak 结束整个进程，不做「只拆自己」的半死状态；
+	// UDP 侧没有致命失败，失联一律退回 WAITING 重新解析并注册
 	if (is_server)
 	{
 		slog_info("run as server");
@@ -42,7 +42,7 @@ bool intraportmap::init(int argc, char* argv[])
 
 		if (mode != IPM_MODE::TCP_ONLY)
 		{
-			sp_ipm_server_udp = std::make_shared<ipm_server_udp>(root_event_base, this);
+			sp_ipm_server_udp = std::make_shared<ipm_server_udp>(root_event_base);
 			if (sp_ipm_server_udp->init(server_name.c_str(), server_port_name.c_str(), key.c_str(), session_timeout) != true)
 			{
 				slog_error("sp_ipm_server_udp init error");
@@ -66,7 +66,7 @@ bool intraportmap::init(int argc, char* argv[])
 
 		if (mode != IPM_MODE::TCP_ONLY)
 		{
-			sp_ipm_client_udp = std::make_shared<ipm_client_udp>(root_event_base, this);
+			sp_ipm_client_udp = std::make_shared<ipm_client_udp>(root_event_base);
 			if (sp_ipm_client_udp->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time, key.c_str(), session_timeout) != true)
 			{
 				slog_error("sp_ipm_client_udp init error");
@@ -184,18 +184,6 @@ void intraportmap::on_interface_ipm_client_fail()
 void intraportmap::on_interface_ipm_server_fail()
 {
 	slog_error("on_interface_ipm_server_fail");
-	event_base_loopbreak(root_event_base);
-}
-
-void intraportmap::on_interface_ipm_client_udp_fail()
-{
-	slog_error("on_interface_ipm_client_udp_fail");
-	event_base_loopbreak(root_event_base);
-}
-
-void intraportmap::on_interface_ipm_server_udp_fail()
-{
-	slog_error("on_interface_ipm_server_udp_fail");
 	event_base_loopbreak(root_event_base);
 }
 

@@ -1,19 +1,12 @@
 #ifndef _IPM_SERVER_UDP_H
 #define _IPM_SERVER_UDP_H
 
-class interface_ipm_server_udp
-{
-public:
-	virtual ~interface_ipm_server_udp() {}
-	virtual void on_interface_ipm_server_udp_fail() = 0;
-};
-
 // 服务端 UDP（一个）。所有 agent、所有会话都共用这一组控制 socket 和客户端通信 ——
 // 见 ipm_types.h 里的 socket 约束 1，换源端口发过去会被严格 NAT 丢掉
 class ipm_server_udp : public interface_ipm_server_udp_agent
 {
 public:
-	ipm_server_udp(struct event_base* base, interface_ipm_server_udp* ptr_interface_p);
+	ipm_server_udp(struct event_base* base);
 
 	bool init(const char* server_name_c, const char* server_port_name_c, const char* key_c, unsigned int session_timeout_u);
 	bool is_init();
@@ -27,7 +20,6 @@ public:
 	virtual void on_interface_ipm_server_udp_agent_dead(ipm_server_udp_agent* agent);
 
 public:
-	void on_fail();
 	void on_readable(evutil_socket_t fd);
 
 private:
@@ -36,7 +28,6 @@ private:
 	unsigned long long next_session_id();
 
 private:
-	interface_ipm_server_udp* ptr_interface;
 	bool is_state_init;
 	std::string server_name;
 	std::string server_port_name;

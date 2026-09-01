@@ -2,8 +2,8 @@
 
 void ipm_server_udp_readable_callback(evutil_socket_t fd, short events, void* user_data);
 
-ipm_server_udp::ipm_server_udp(struct event_base* base, interface_ipm_server_udp* ptr_interface_p)
-	: ptr_interface(ptr_interface_p), root_event_base(base)
+ipm_server_udp::ipm_server_udp(struct event_base* base)
+	: root_event_base(base)
 {
 	reset();
 }
@@ -78,13 +78,6 @@ void ipm_server_udp::reset()
 	sock.close();
 	asa_agent.clear();
 	mis_session.clear();
-}
-
-void ipm_server_udp::on_fail()
-{
-	slog_error("server_udp on_fail");
-	if (ptr_interface)
-		ptr_interface->on_interface_ipm_server_udp_fail();
 }
 
 unsigned long long ipm_server_udp::next_session_id()

@@ -1,8 +1,7 @@
 #ifndef _INTRAPORTMAP_H
 #define _INTRAPORTMAP_H
 
-class intraportmap : public interface_ipm_client, public interface_ipm_server,
-	public interface_ipm_client_udp, public interface_ipm_server_udp
+class intraportmap : public interface_ipm_client, public interface_ipm_server
 {
 public:
 	intraportmap();
@@ -17,8 +16,6 @@ public:
 public:
 	virtual void on_interface_ipm_client_fail();
 	virtual void on_interface_ipm_server_fail();
-	virtual void on_interface_ipm_client_udp_fail();
-	virtual void on_interface_ipm_server_udp_fail();
 
 public: // libevent过来的事件
 	// 中断

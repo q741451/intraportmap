@@ -48,8 +48,7 @@ public:
 	address_package_t addr_pkg;
 };
 
-// 必须 inline 放在这里：原先它是 ipm_server.cpp 里的一个自由函数，没有任何头文件
-// 声明过，于是只有那一个编译单元能拿它当 map 的比较器，别处一用就是编译错误
+// 比较器必须随类型一起放在头文件里：多个编译单元都要拿 addr_pkg_idx 当 map 的 key
 inline bool operator < (const addr_pkg_idx& item1, const addr_pkg_idx& item2)
 {
 	return memcmp(&item1.addr_pkg, &item2.addr_pkg, sizeof(address_package_t)) < 0;
@@ -94,12 +93,11 @@ enum class IPM_MODE : unsigned int
 #define IPM_UDP_MAX_PAYLOAD			65507
 #define IPM_UDP_BUF_LEN				(IPM_UDP_SESSION_LEN + IPM_UDP_MAX_PAYLOAD)
 
-// 心跳按 TCP keepalive 的形状来，但间隔必须短得多：TCP 的 NAT 映射按 RFC 5382
-// 至少 2 小时 4 分，UDP 的在 Linux conntrack 上未应答时只有 30 秒
-// 15 秒取自 RFC 8445（ICE）第 11 节：STUN 保活的 Tr「SHOULD use a value of 15
-// seconds」且「MUST NOT use a value smaller than 15 seconds」——这是业界针对
-// 「穿过任意消费级 NAT 保住 UDP 绑定」打磨出来的数。实测 conntrack 未应答档
-// 只有 30 秒，15 秒留出一倍余量
+// 心跳沿用 TCP keepalive 的形状（空闲触发，随后密集探测），但间隔必须短得多：
+// TCP 的 NAT 映射按 RFC 5382 至少 2 小时 4 分，UDP 的在 Linux conntrack 上未应答
+// 时只有 30 秒。15 秒取自 RFC 8445（ICE）第 11 节对 STUN 保活 Tr 的规定
+// 「SHOULD use a value of 15 seconds / MUST NOT use a value smaller than 15
+// seconds」，相对 30 秒留出一倍余量
 #define IPM_UDP_HEARTBEAT_IDLE		15		// 秒，这么久没「收到」服务端任何包才发心跳
 #define IPM_UDP_REG_RETRY			2		// 秒，REGISTERING 下重发注册的间隔
 #define IPM_UDP_REG_TRIES			3		// 注册重试次数，用完转 WAITING 并重新解析 DNS

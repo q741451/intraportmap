@@ -107,9 +107,8 @@ void ipm_server_udp_agent::reset()
 	session_timeout = IPM_UDP_SESSION_TIMEOUT;
 	session_tv = NULL;
 	sock.close();
-	// 只赋初值，绝不在这里释放：reset() 会被构造函数调用，那时 hb_timer 还是
-	// 未初始化的野值，event_free 会踩随机指针。释放归 exit() 管 —— 与 TCP 侧
-	// 各类的 reset()/exit() 分工保持一致
+	// reset() 只赋初值，释放一律归 exit()：它会被构造函数调用，那时成员尚未
+	// 初始化，在这里 event_free 等于解引用野指针。各类的分工都是如此
 	hb_timer = NULL;
 	client_fd = -1;
 	client_addr_len = 0;

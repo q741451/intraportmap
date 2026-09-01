@@ -6,8 +6,8 @@ void ipm_client_udp_session_readable_callback(evutil_socket_t fd, short events, 
 void ipm_client_udp_session_timeout_callback(evutil_socket_t fd, short events, void* user_data);
 void ipm_client_udp_tick_callback(evutil_socket_t fd, short events, void* user_data);
 
-ipm_client_udp::ipm_client_udp(struct event_base* base, interface_ipm_client_udp* ptr_interface_p)
-	: ptr_interface(ptr_interface_p), root_event_base(base)
+ipm_client_udp::ipm_client_udp(struct event_base* base)
+	: root_event_base(base)
 {
 	reset();
 }
@@ -62,9 +62,8 @@ bool ipm_client_udp::init(const char* server_name_c, const char* server_port_nam
 
 	ret = true;
 
-	// 状态必须在调用之前置好：地址是字面量时 evdns_getaddrinfo 会同步回调，
-	// 回调里已经把状态推进到 REGISTERING 了，放在后面赋值会把它冲回 DNS_QUERYING，
-	// 于是 on_tick 认不出状态，心跳不会跑
+	// 状态必须在发起解析之前置好：地址是字面量时 evdns_getaddrinfo 会同步回调，
+	// 回调已把状态推进到 REGISTERING，放在其后赋值会把它冲回 DNS_QUERYING
 	client_state = CLIENT_STATE::DNS_QUERYING;
 
 	// 开始第一步，允许失败
@@ -166,13 +165,6 @@ void ipm_client_udp::on_fail()
 
 	wait_since = time(NULL);
 	client_state = CLIENT_STATE::WAITING;
-}
-
-void ipm_client_udp::on_fatal_fail()
-{
-	slog_error("client_udp on_fatal_fail");
-	if (ptr_interface)
-		ptr_interface->on_interface_ipm_client_udp_fail();
 }
 
 bool ipm_client_udp::dns_query_server()
@@ -518,7 +510,7 @@ void ipm_client_udp::on_tick()
 		if (now - wait_since >= (time_t)client_reconn_time)
 		{
 			slog_info("udp wait over, dns_query_server...");
-			// 同上，状态先置好再调用，否则同步回调推进的状态会被冲掉
+			// 同上，状态先置好再发起解析
 			client_state = CLIENT_STATE::DNS_QUERYING;
 			if (dns_query_server() != true)
 			{

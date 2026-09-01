@@ -33,13 +33,6 @@ public:
 	ipm_client_udp* owner;
 };
 
-class interface_ipm_client_udp
-{
-public:
-	virtual ~interface_ipm_client_udp() {}
-	virtual void on_interface_ipm_client_udp_fail() = 0;
-};
-
 // 客户端 UDP（一个）。与 TCP 侧完全独立：不借道控制连接，自己解析 DNS、
 // 自己重试。心跳和数据必须共用 server_fd 这一个 socket —— 见 ipm_types.h 的
 // socket 约束 2，会话正是靠蹭心跳维持的那条 NAT 映射才免于各自保活
@@ -58,7 +51,7 @@ public:
 	};
 
 public:
-	ipm_client_udp(struct event_base* base, interface_ipm_client_udp* ptr_interface_p);
+	ipm_client_udp(struct event_base* base);
 
 	bool init(const char* server_name_c, const char* server_port_name_c, const char* to_server_name_c,
 		const char* to_server_port_name_c, const char* from_server_name_c, const char* from_server_port_name_c,
@@ -69,7 +62,6 @@ public:
 
 public:
 	void on_fail();
-	void on_fatal_fail();
 	void on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result);
 	void on_server_readable(evutil_socket_t fd);
 	void on_session_readable(evutil_socket_t fd, ipm_client_udp_session* session);
@@ -85,7 +77,6 @@ private:
 	void client_reset();
 
 private:
-	interface_ipm_client_udp* ptr_interface;
 	bool is_state_init;
 	CLIENT_STATE client_state;
 	unsigned int client_reconn_time;

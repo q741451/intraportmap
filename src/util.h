@@ -22,9 +22,8 @@ public:
 	static std::string string_format(const char* fmt_str, ...);
 };
 
-// 一组双栈 UDP socket 及其读事件。绑 :: 时会同时开一个 v4 通配，
-// 与 TCP 侧 evconnlistener 那套双栈处理保持一致。
-// 服务端的控制口、每个 agent 的公网口、客户端的每个 agent 口都用它
+// 一组双栈 UDP socket 及其读事件。绑 :: 时会同时开一个 v4 通配，与 TCP 侧
+// evconnlistener 那套双栈处理保持一致。用于服务端的控制口和每个 agent 的公网口
 class ipm_udp_socket_pair
 {
 public:
@@ -32,7 +31,6 @@ public:
 
 	bool open(struct event_base* base, const struct sockaddr* addr, int addr_len, event_callback_fn cb, void* arg);
 	void close();
-	bool is_open();
 
 	evutil_socket_t fd4;
 	evutil_socket_t fd6;

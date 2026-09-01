@@ -257,8 +257,8 @@ end:
 
 // 全进程共用的 UDP 收发缓冲。单线程事件循环下，一个包彻底处理完才会读下一个，
 // 收包路径也不会递归回自己，所以不存在重入。
-// 约定：调用方在 buf + IPM_UDP_SESSION_LEN 处收包，转发时把会话号写进前 8 字节、
-// 校验写进尾部 4 字节，全程不用再拷贝一次载荷
+// 约定：调用方在 buf + IPM_UDP_SESSION_LEN 处收包，转发时把会话号写进它前面的
+// 8 字节，全程不用再拷贝一次载荷
 char* util::get_udp_buffer()
 {
 	static char udp_buffer[IPM_UDP_BUF_LEN];
@@ -421,11 +421,6 @@ void ipm_udp_socket_pair::close()
 		evutil_closesocket(fd6);
 		fd6 = -1;
 	}
-}
-
-bool ipm_udp_socket_pair::is_open()
-{
-	return fd4 != -1 || fd6 != -1;
 }
 
 bool ipm_udp_socket_pair::add_event(struct event_base* base, evutil_socket_t fd, event_callback_fn cb, void* arg, struct event*& out_event)
