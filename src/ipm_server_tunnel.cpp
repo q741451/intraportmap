@@ -330,7 +330,7 @@ void ipm_server_tunnel::on_to_bufferevent_data_write_callback(struct bufferevent
 			slog_debug("bufferevent_enable fail");
 			return on_client_fail();
 		}
-		client_flush_state = FLUSH_STATE::NORMAL;
+		to_flush_state = FLUSH_STATE::NORMAL;
 	}
 	else if (to_flush_state == FLUSH_STATE::FLUSH_AND_EXIT)
 	{
