@@ -40,12 +40,14 @@ class ipm_client_udp
 {
 public:
 	// 与 ipm_client::CLIENT_STATE 一一对应。UDP 没有 connect() 失败这种内核信号，
-	// 所以用 REGISTERING 超时来充当 TCP 的 SERVER_CONNECTING 失败
+	// 所以用 SERVER_REGISTERING 的超时来充当 TCP 的 SERVER_CONNECTING 失败。
+	// 注意别用裸的 REGISTERING：windows.h 里有同名宏，预处理会把它替换成数字，
+	// enum class 的作用域挡不住宏
 	enum class CLIENT_STATE : unsigned int
 	{
 		IDLE,
 		DNS_QUERYING,
-		REGISTERING,
+		SERVER_REGISTERING,
 		RUNNING,
 		WAITING,
 	};

@@ -63,7 +63,7 @@ bool ipm_client_udp::init(const char* server_name_c, const char* server_port_nam
 	ret = true;
 
 	// 状态必须在发起解析之前置好：地址是字面量时 evdns_getaddrinfo 会同步回调，
-	// 回调已把状态推进到 REGISTERING，放在其后赋值会把它冲回 DNS_QUERYING
+	// 回调已把状态推进到 SERVER_REGISTERING，放在其后赋值会把它冲回 DNS_QUERYING
 	client_state = CLIENT_STATE::DNS_QUERYING;
 
 	// 开始第一步，允许失败
@@ -235,7 +235,7 @@ void ipm_client_udp::on_evdns_getaddrinfo(int err, struct evutil_addrinfo* resul
 	}
 
 	reg_tries = 0;
-	client_state = CLIENT_STATE::REGISTERING;
+	client_state = CLIENT_STATE::SERVER_REGISTERING;
 	ret = true;
 end:
 	if (result)
@@ -356,7 +356,7 @@ void ipm_client_udp::on_server_readable(evutil_socket_t fd)
 		hb_pending = false;
 		hb_miss = 0;
 
-		if (client_state == CLIENT_STATE::REGISTERING)
+		if (client_state == CLIENT_STATE::SERVER_REGISTERING)
 		{
 			slog_info("udp registered, port = %u", ntohl(((alloc_agent_package_t*)buf)->addr_pkg.port));
 			client_state = CLIENT_STATE::RUNNING;
@@ -468,7 +468,7 @@ void ipm_client_udp::on_tick()
 
 	switch (client_state)
 	{
-	case CLIENT_STATE::REGISTERING:
+	case CLIENT_STATE::SERVER_REGISTERING:
 		// 没有 connect() 失败这种内核信号，注册超时就是 TCP 连接失败的等价物
 		if (now - last_send >= IPM_UDP_REG_RETRY)
 		{

@@ -99,7 +99,7 @@ enum class IPM_MODE : unsigned int
 // 「SHOULD use a value of 15 seconds / MUST NOT use a value smaller than 15
 // seconds」，相对 30 秒留出一倍余量
 #define IPM_UDP_HEARTBEAT_IDLE		15		// 秒，这么久没「收到」服务端任何包才发心跳
-#define IPM_UDP_REG_RETRY			2		// 秒，REGISTERING 下重发注册的间隔
+#define IPM_UDP_REG_RETRY			2		// 秒，SERVER_REGISTERING 下重发注册的间隔
 #define IPM_UDP_REG_TRIES			3		// 注册重试次数，用完转 WAITING 并重新解析 DNS
 #define IPM_UDP_HEARTBEAT_TRIES		5		// RUNNING 下连续这么多次没 ACK 判定失联
 // 服务端判定 agent 死亡。刻意与心跳间隔解耦、取绝对值：它必须明显长于客户端
