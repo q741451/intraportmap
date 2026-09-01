@@ -10,14 +10,26 @@ class ipm_client_udp_session
 {
 public:
 	ipm_client_udp_session()
-		: id(0), fd(-1), read_event(NULL), last_seen(0), owner(NULL)
+		: id(0), fd(-1), read_event(NULL), timer(NULL), owner(NULL)
 	{
+	}
+
+	// 在自己的定时器回调里被析构是允许的：event_free 对正在执行的 event
+	// 会做延迟释放
+	~ipm_client_udp_session()
+	{
+		if (read_event)
+			event_free(read_event);
+		if (timer)
+			event_free(timer);
+		if (fd != -1)
+			evutil_closesocket(fd);
 	}
 
 	unsigned long long id;
 	evutil_socket_t fd;				// 到被代理主机
 	struct event* read_event;
-	time_t last_seen;
+	struct event* timer;			// 空闲老化，每次收发都重置
 	ipm_client_udp* owner;
 };
 
@@ -61,6 +73,7 @@ public:
 	void on_evdns_getaddrinfo(int err, struct evutil_addrinfo* result);
 	void on_server_readable(evutil_socket_t fd);
 	void on_session_readable(evutil_socket_t fd, ipm_client_udp_session* session);
+	void on_session_timeout(ipm_client_udp_session* session);
 	void on_tick();
 
 private:
@@ -68,8 +81,6 @@ private:
 	bool open_server_socket();
 	bool send_register();
 	std::shared_ptr<ipm_client_udp_session> new_session(unsigned long long id);
-	void del_session(unsigned long long id);
-	void sweep_sessions(time_t now);
 	void client_exit();
 	void client_reset();
 
@@ -96,7 +107,10 @@ private:
 	// 不释放的变量
 	struct event_base* root_event_base;		// 来自外部
 	// 整个类的生命周期
-	struct event* tick_event;				// 1 秒一跳，驱动整个状态机
+	struct event* tick_event;				// 1 秒一跳，驱动注册重试与心跳
+	// 会话空闲超时。所有会话共用同一时长，用 libevent 的 common timeout 装进
+	// 按时长分桶的有序队列，每包重置退化成 O(1) 队尾插入，不碰最小堆
+	const struct timeval* session_tv;
 	// 重连生命周期
 	struct evdns_base* server_evdns_base;
 	evutil_socket_t server_fd;				// 心跳和数据共用，不可拆

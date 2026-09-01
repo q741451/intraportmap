@@ -1,6 +1,8 @@
 #include "stdafx.h"
 
 void ipm_server_udp_agent_readable_callback(evutil_socket_t fd, short events, void* user_data);
+void ipm_server_udp_agent_session_timeout_callback(evutil_socket_t fd, short events, void* user_data);
+void ipm_server_udp_agent_heartbeat_timeout_callback(evutil_socket_t fd, short events, void* user_data);
 
 ipm_server_udp_agent::ipm_server_udp_agent(struct event_base* base, interface_ipm_server_udp_agent* ptr_interface_p)
 	: ptr_interface(ptr_interface_p), root_event_base(base)
@@ -13,9 +15,16 @@ bool ipm_server_udp_agent::init(addr_pkg_idx& addr_idx_api, unsigned int session
 	bool ret = false;
 	struct sockaddr_storage agent_addr;
 	unsigned int agent_addr_len = 0;
+	struct timeval tv;
 
 	addr_idx = addr_idx_api;
 	session_timeout = session_timeout_u;
+
+	// 所有会话共用同一个超时时长，注册成 common timeout 后每次重置是 O(1)
+	// 队尾插入，而不是每包一次 O(log N) 的最小堆调整
+	memset(&tv, 0, sizeof(tv));
+	tv.tv_sec = session_timeout;
+	session_tv = event_base_init_common_timeout(root_event_base, &tv);
 
 	if (addr_idx.addr_pkg.is_ipv6)
 	{
@@ -44,6 +53,12 @@ bool ipm_server_udp_agent::init(addr_pkg_idx& addr_idx_api, unsigned int session
 		goto end;
 	}
 
+	if ((hb_timer = evtimer_new(root_event_base, ipm_server_udp_agent_heartbeat_timeout_callback, this)) == NULL)
+	{
+		slog_error("evtimer_new error");
+		goto end;
+	}
+
 	ret = true;
 end:
 	if (ret == true)
@@ -67,7 +82,14 @@ bool ipm_server_udp_agent::exit()
 
 	sock.close();
 
-	// 会话自己不持有 fd，摘掉上层的全局索引后随 map 一起释放
+	if (hb_timer)
+	{
+		event_free(hb_timer);
+		hb_timer = NULL;
+	}
+
+	// 会话自己不持有 fd，摘掉上层的全局索引后随 map 一起释放，
+	// 各自的定时器在 ipm_udp_session 的析构里 event_free
 	if (ptr_interface)
 	{
 		for (iter = mss_session.begin(); iter != mss_session.end(); ++iter)
@@ -83,10 +105,15 @@ void ipm_server_udp_agent::reset()
 {
 	is_state_init = false;
 	session_timeout = IPM_UDP_SESSION_TIMEOUT;
+	session_tv = NULL;
 	sock.close();
+	if (hb_timer)
+	{
+		event_free(hb_timer);
+		hb_timer = NULL;
+	}
 	client_fd = -1;
 	client_addr_len = 0;
-	last_heartbeat = 0;
 	memset(&client_addr, 0, sizeof(client_addr));
 	mss_session.clear();
 }
@@ -98,6 +125,8 @@ addr_pkg_idx& ipm_server_udp_agent::get_addr_pkg_idx()
 
 void ipm_server_udp_agent::set_client(evutil_socket_t fd, const struct sockaddr* addr, unsigned int addr_len)
 {
+	struct timeval tv;
+
 	// 每次心跳都刷新：客户端 NAT 重绑定后源端口会变，最新的赢。
 	// 这个「最新的赢」也正是注册包重放能劫持流量的原因，两者是同一件事，
 	// 将来加重放保护时要一起改
@@ -105,7 +134,14 @@ void ipm_server_udp_agent::set_client(evutil_socket_t fd, const struct sockaddr*
 	memset(&client_addr, 0, sizeof(client_addr));
 	memcpy(&client_addr, addr, addr_len);
 	client_addr_len = addr_len;
-	last_heartbeat = time(NULL);
+
+	// 重新压上判死定时器。event_add 对已挂起的 event 就是重置
+	if (hb_timer)
+	{
+		memset(&tv, 0, sizeof(tv));
+		tv.tv_sec = IPM_UDP_AGENT_TIMEOUT;
+		event_add(hb_timer, &tv);
+	}
 }
 
 evutil_socket_t ipm_server_udp_agent::get_client_fd()
@@ -121,16 +157,6 @@ const struct sockaddr* ipm_server_udp_agent::get_client_addr()
 unsigned int ipm_server_udp_agent::get_client_addr_len()
 {
 	return client_addr_len;
-}
-
-time_t ipm_server_udp_agent::get_last_heartbeat()
-{
-	return last_heartbeat;
-}
-
-void ipm_server_udp_agent::touch_heartbeat()
-{
-	last_heartbeat = time(NULL);
 }
 
 // 访客来包：查/建会话，然后原样交给客户端
@@ -183,13 +209,16 @@ void ipm_server_udp_agent::on_readable(evutil_socket_t fd)
 		session->from_fd = fd;
 		session->agent = this;
 
+		if ((session->timer = evtimer_new(root_event_base, ipm_server_udp_agent_session_timeout_callback, session.get())) == NULL)
+			return;
+
 		if (!ptr_interface || ptr_interface->on_interface_ipm_server_udp_agent_new_session(session) != true)
 			return;
 
 		mss_session[peer_idx] = session;
 	}
 
-	session->last_seen = time(NULL);
+	event_add(session->timer, session_tv);
 
 	if (ptr_interface)
 		ptr_interface->on_interface_ipm_server_udp_agent_to_client(this, session->id, payload, (size_t)recv_len);
@@ -200,7 +229,7 @@ bool ipm_server_udp_agent::send_to_peer(ipm_udp_session* session, const char* pa
 	if (session == NULL || session->from_fd == -1)
 		return false;
 
-	session->last_seen = time(NULL);
+	event_add(session->timer, session_tv);
 
 	if (sendto(session->from_fd, payload, (int)payload_len, 0, (const struct sockaddr*)&session->peer_addr, session->peer_addr_len) < 0)
 		return false;
@@ -208,26 +237,45 @@ bool ipm_server_udp_agent::send_to_peer(ipm_udp_session* session, const char* pa
 	return true;
 }
 
-void ipm_server_udp_agent::sweep(time_t now)
+void ipm_server_udp_agent::on_session_timeout(ipm_udp_session* session)
 {
-	std::map<addr_pkg_idx, std::shared_ptr<ipm_udp_session>>::iterator iter = mss_session.begin();
+	std::map<addr_pkg_idx, std::shared_ptr<ipm_udp_session>>::iterator iter;
+	std::shared_ptr<ipm_udp_session> keep;
 
-	while (iter != mss_session.end())
-	{
-		if (now - iter->second->last_seen >= (time_t)session_timeout)
-		{
-			if (ptr_interface)
-				ptr_interface->on_interface_ipm_server_udp_agent_del_session(iter->second->id);
-			mss_session.erase(iter++);
-		}
-		else
-		{
-			++iter;
-		}
-	}
+	if ((iter = mss_session.find(session->peer_idx)) == mss_session.end())
+		return;
+
+	// 先攥住一份，保证 erase 之后对象活到回调返回（它的定时器正在执行）
+	keep = iter->second;
+
+	if (ptr_interface)
+		ptr_interface->on_interface_ipm_server_udp_agent_del_session(keep->id);
+
+	mss_session.erase(iter);
+}
+
+void ipm_server_udp_agent::on_heartbeat_timeout()
+{
+	slog_info("udp agent port %u heartbeat lost, closing", ntohl(addr_idx.addr_pkg.port));
+
+	if (ptr_interface)
+		ptr_interface->on_interface_ipm_server_udp_agent_dead(this);
 }
 
 void ipm_server_udp_agent_readable_callback(evutil_socket_t fd, short events, void* user_data)
 {
 	if (user_data)	((ipm_server_udp_agent*)user_data)->on_readable(fd);
+}
+
+void ipm_server_udp_agent_session_timeout_callback(evutil_socket_t fd, short events, void* user_data)
+{
+	ipm_udp_session* session = (ipm_udp_session*)user_data;
+
+	if (session && session->agent)
+		session->agent->on_session_timeout(session);
+}
+
+void ipm_server_udp_agent_heartbeat_timeout_callback(evutil_socket_t fd, short events, void* user_data)
+{
+	if (user_data)	((ipm_server_udp_agent*)user_data)->on_heartbeat_timeout();
 }

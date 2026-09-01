@@ -3,6 +3,7 @@
 void ipm_client_udp_evdns_getaddrinfo_callback(int err, struct evutil_addrinfo* ai, void* arg);
 void ipm_client_udp_server_readable_callback(evutil_socket_t fd, short events, void* user_data);
 void ipm_client_udp_session_readable_callback(evutil_socket_t fd, short events, void* user_data);
+void ipm_client_udp_session_timeout_callback(evutil_socket_t fd, short events, void* user_data);
 void ipm_client_udp_tick_callback(evutil_socket_t fd, short events, void* user_data);
 
 ipm_client_udp::ipm_client_udp(struct event_base* base, interface_ipm_client_udp* ptr_interface_p)
@@ -26,6 +27,11 @@ bool ipm_client_udp::init(const char* server_name_c, const char* server_port_nam
 	key = key_c;
 	session_timeout = session_timeout_u;
 
+	// 客户端侧刻意比服务端晚老化，理由见 IPM_UDP_CLIENT_LAG
+	memset(&tv, 0, sizeof(tv));
+	tv.tv_sec = session_timeout + IPM_UDP_CLIENT_LAG;
+	session_tv = event_base_init_common_timeout(root_event_base, &tv);
+
 	if (util::getaddrinfo_first(to_server_name.c_str(), to_server_port_name.c_str(), to_server_addr, &to_server_addr_len) != true)
 	{
 		slog_error("getaddrinfo_first to_server_name error");
@@ -38,7 +44,8 @@ bool ipm_client_udp::init(const char* server_name_c, const char* server_port_nam
 		goto end;
 	}
 
-	// 一个 1 秒的心跳定时器驱动全部状态：注册重试、惰性心跳、会话老化、重连等待
+	// 1 秒一跳，驱动注册重试、惰性心跳、重连等待。会话老化不在这里，
+	// 每条会话自带定时器
 	if ((tick_event = event_new(root_event_base, -1, EV_PERSIST, ipm_client_udp_tick_callback, this)) == NULL)
 	{
 		slog_error("event_new error");
@@ -57,7 +64,7 @@ bool ipm_client_udp::init(const char* server_name_c, const char* server_port_nam
 
 	// 状态必须在调用之前置好：地址是字面量时 evdns_getaddrinfo 会同步回调，
 	// 回调里已经把状态推进到 REGISTERING 了，放在后面赋值会把它冲回 DNS_QUERYING，
-	// 于是 on_tick 认不出状态，心跳和会话老化都不会跑
+	// 于是 on_tick 认不出状态，心跳不会跑
 	client_state = CLIENT_STATE::DNS_QUERYING;
 
 	// 开始第一步，允许失败
@@ -107,21 +114,14 @@ void ipm_client_udp::reset()
 	to_server_addr_len = 0;
 	from_server_addr_len = 0;
 	tick_event = NULL;
+	session_tv = NULL;
 	client_reset();
 }
 
 // 重连之前的清理：会话和到服务端的 socket 都随之作废
 void ipm_client_udp::client_exit()
 {
-	std::map<unsigned long long, std::shared_ptr<ipm_client_udp_session>>::iterator iter;
-
-	for (iter = mis_session.begin(); iter != mis_session.end(); ++iter)
-	{
-		if (iter->second->read_event)
-			event_free(iter->second->read_event);
-		if (iter->second->fd != -1)
-			evutil_closesocket(iter->second->fd);
-	}
+	// 会话的 fd 与两个 event 都由 ipm_client_udp_session 的析构负责
 	mis_session.clear();
 
 	if (server_read_event)
@@ -388,7 +388,7 @@ void ipm_client_udp::on_server_readable(evutil_socket_t fd)
 			return;
 	}
 
-	session->last_seen = time(NULL);
+	event_add(session->timer, session_tv);
 	send(session->fd, buf + IPM_UDP_SESSION_LEN, recv_len - (int)IPM_UDP_SESSION_LEN, 0);
 }
 
@@ -407,7 +407,7 @@ void ipm_client_udp::on_session_readable(evutil_socket_t fd, ipm_client_udp_sess
 	if (server_fd == -1)
 		return;
 
-	session->last_seen = time(NULL);
+	event_add(session->timer, session_tv);
 
 	pkt_len = IPM_UDP_SESSION_LEN + (size_t)recv_len;
 	*(unsigned long long*)buf = util::htonllx(session->id);
@@ -442,61 +442,32 @@ std::shared_ptr<ipm_client_udp_session> ipm_client_udp::new_session(unsigned lon
 	if (event_add(session->read_event, NULL) != 0)
 		goto fail;
 
-	session->last_seen = time(NULL);
+	if ((session->timer = evtimer_new(root_event_base, ipm_client_udp_session_timeout_callback, session.get())) == NULL)
+		goto fail;
+
+	if (event_add(session->timer, session_tv) != 0)
+		goto fail;
+
 	mis_session[id] = session;
 
 	return session;
 fail:
-	if (session->read_event)
-	{
-		event_free(session->read_event);
-		session->read_event = NULL;
-	}
-	if (session->fd != -1)
-	{
-		evutil_closesocket(session->fd);
-		session->fd = -1;
-	}
+	// fd 与两个 event 都由 ipm_client_udp_session 的析构负责
 	session.reset();
 	return session;
 }
 
-void ipm_client_udp::del_session(unsigned long long id)
+void ipm_client_udp::on_session_timeout(ipm_client_udp_session* session)
 {
 	std::map<unsigned long long, std::shared_ptr<ipm_client_udp_session>>::iterator iter;
+	std::shared_ptr<ipm_client_udp_session> keep;
 
-	if ((iter = mis_session.find(id)) == mis_session.end())
+	if ((iter = mis_session.find(session->id)) == mis_session.end())
 		return;
 
-	if (iter->second->read_event)
-		event_free(iter->second->read_event);
-	if (iter->second->fd != -1)
-		evutil_closesocket(iter->second->fd);
-
+	// 先攥住一份，保证 erase 之后对象活到回调返回（它的定时器正在执行）
+	keep = iter->second;
 	mis_session.erase(iter);
-}
-
-// 客户端这半边的老化必须不早于服务端，否则同一条会话中途换了源端口，
-// 对按 addr:port 认客户端的有状态被代理主机来说就是「换了个人」
-void ipm_client_udp::sweep_sessions(time_t now)
-{
-	std::map<unsigned long long, std::shared_ptr<ipm_client_udp_session>>::iterator iter = mis_session.begin();
-
-	while (iter != mis_session.end())
-	{
-		if (now - iter->second->last_seen >= (time_t)session_timeout + IPM_UDP_SWEEP_INTERVAL)
-		{
-			if (iter->second->read_event)
-				event_free(iter->second->read_event);
-			if (iter->second->fd != -1)
-				evutil_closesocket(iter->second->fd);
-			mis_session.erase(iter++);
-		}
-		else
-		{
-			++iter;
-		}
-	}
 }
 
 void ipm_client_udp::on_tick()
@@ -520,8 +491,6 @@ void ipm_client_udp::on_tick()
 		break;
 
 	case CLIENT_STATE::RUNNING:
-		sweep_sessions(now);
-
 		if (hb_pending)
 		{
 			if (now - last_send >= IPM_UDP_REG_RETRY)
@@ -580,6 +549,14 @@ void ipm_client_udp_session_readable_callback(evutil_socket_t fd, short events, 
 
 	if (session && session->owner)
 		session->owner->on_session_readable(fd, session);
+}
+
+void ipm_client_udp_session_timeout_callback(evutil_socket_t fd, short events, void* user_data)
+{
+	ipm_client_udp_session* session = (ipm_client_udp_session*)user_data;
+
+	if (session && session->owner)
+		session->owner->on_session_timeout(session);
 }
 
 void ipm_client_udp_tick_callback(evutil_socket_t fd, short events, void* user_data)

@@ -89,22 +89,29 @@ enum class IPM_MODE : unsigned int
 //     蹭心跳维持的那条映射才免于各自保活的。
 #define IPM_UDP_SESSION_LEN			8
 // 合法 UDP 数据报的上限。收包缓冲必须按它开：缓冲小了内核会静默截断，
-// 那比干脆丢弃更糟（转出去半个包）
+// 那比干脆丢弃更糟（转出去半个包）。
+// 超长不判断、不告警、不丢弃，一律照转，交给 IP 分片
 #define IPM_UDP_MAX_PAYLOAD			65507
 #define IPM_UDP_BUF_LEN				(IPM_UDP_SESSION_LEN + IPM_UDP_MAX_PAYLOAD)
-// 超过它只告警不丢弃，交给 IP 分片。等价于 ss 的 packet_size：ss 那边同样
-// 只打一行 fragmentation 日志然后照转，丢弃会打断 EDNS0 的大 DNS 响应
-#define IPM_UDP_WARN_PAYLOAD		1400
 
 // 心跳按 TCP keepalive 的形状来，但间隔必须短得多：TCP 的 NAT 映射按 RFC 5382
 // 至少 2 小时 4 分，UDP 的在 Linux conntrack 上未应答时只有 30 秒
-#define IPM_UDP_HEARTBEAT_IDLE		20		// 秒，这么久没「收到」服务端任何包才发心跳
+// 15 秒取自 RFC 8445（ICE）第 11 节：STUN 保活的 Tr「SHOULD use a value of 15
+// seconds」且「MUST NOT use a value smaller than 15 seconds」——这是业界针对
+// 「穿过任意消费级 NAT 保住 UDP 绑定」打磨出来的数。实测 conntrack 未应答档
+// 只有 30 秒，15 秒留出一倍余量
+#define IPM_UDP_HEARTBEAT_IDLE		15		// 秒，这么久没「收到」服务端任何包才发心跳
 #define IPM_UDP_REG_RETRY			2		// 秒，REGISTERING 下重发注册的间隔
 #define IPM_UDP_REG_TRIES			3		// 注册重试次数，用完转 WAITING 并重新解析 DNS
 #define IPM_UDP_HEARTBEAT_TRIES		5		// RUNNING 下连续这么多次没 ACK 判定失联
-#define IPM_UDP_AGENT_TIMEOUT		(IPM_UDP_HEARTBEAT_IDLE * 3)	// 秒，服务端判定 agent 死亡
+// 服务端判定 agent 死亡。刻意与心跳间隔解耦、取绝对值：它必须明显长于客户端
+// 自己那套「检测 + 重连」的耗时（15s 空闲 + 5×2s 探测 ≈ 25s，再加 -w 默认 15s），
+// 否则正在恢复中的客户端会被服务端提前拆掉 agent，连带丢掉它名下所有会话
+#define IPM_UDP_AGENT_TIMEOUT		60
 #define IPM_UDP_SESSION_TIMEOUT		180		// 秒，会话空闲超时默认值，-T 可配
-#define IPM_UDP_SWEEP_INTERVAL		10		// 秒，会话表清扫间隔
+// 客户端侧会话比服务端多活这么久。不能更早：否则同一条会话中途换了后端源端口，
+// 对按 addr:port 认客户端的有状态被代理主机来说就是换了个人
+#define IPM_UDP_CLIENT_LAG			10
 #define IPM_UDP_MAX_SESSION			16384	// 会话表上限，防止扫描把 fd 和内存打爆
 
 #endif

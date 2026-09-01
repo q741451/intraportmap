@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 void ipm_server_udp_readable_callback(evutil_socket_t fd, short events, void* user_data);
-void ipm_server_udp_sweep_callback(evutil_socket_t fd, short events, void* user_data);
 
 ipm_server_udp::ipm_server_udp(struct event_base* base, interface_ipm_server_udp* ptr_interface_p)
 	: ptr_interface(ptr_interface_p), root_event_base(base)
@@ -12,7 +11,6 @@ ipm_server_udp::ipm_server_udp(struct event_base* base, interface_ipm_server_udp
 bool ipm_server_udp::init(const char* server_name_c, const char* server_port_name_c, const char* key_c, unsigned int session_timeout_u)
 {
 	bool ret = false;
-	struct timeval tv;
 
 	server_name = server_name_c;
 	server_port_name = server_port_name_c;
@@ -33,21 +31,6 @@ bool ipm_server_udp::init(const char* server_name_c, const char* server_port_nam
 	if (sock.open(root_event_base, (struct sockaddr*)&server_addr, (int)server_addr_len, ipm_server_udp_readable_callback, this) != true)
 	{
 		slog_error("udp control socket open error");
-		goto end;
-	}
-
-	// 一个全局清扫定时器就够，不必每会话一个 timer
-	if ((sweep_event = event_new(root_event_base, -1, EV_PERSIST, ipm_server_udp_sweep_callback, this)) == NULL)
-	{
-		slog_error("event_new error");
-		goto end;
-	}
-
-	memset(&tv, 0, sizeof(tv));
-	tv.tv_sec = IPM_UDP_SWEEP_INTERVAL;
-	if (event_add(sweep_event, &tv) != 0)
-	{
-		slog_error("event_add error");
 		goto end;
 	}
 
@@ -72,12 +55,6 @@ bool ipm_server_udp::exit()
 {
 	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_udp_agent>>::iterator iter;
 
-	if (sweep_event)
-	{
-		event_free(sweep_event);
-		sweep_event = NULL;
-	}
-
 	sock.close();
 
 	for (iter = asa_agent.begin(); iter != asa_agent.end(); ++iter)
@@ -98,9 +75,6 @@ void ipm_server_udp::reset()
 	server_addr_len = 0;
 	session_timeout = IPM_UDP_SESSION_TIMEOUT;
 	session_seq = 0;
-	last_oversize_log = 0;
-	oversize_count = 0;
-	sweep_event = NULL;
 	sock.close();
 	asa_agent.clear();
 	mis_session.clear();
@@ -139,7 +113,8 @@ void ipm_server_udp::on_interface_ipm_server_udp_agent_del_session(unsigned long
 }
 
 // 访客的载荷已经躺在 util::get_udp_buffer() + IPM_UDP_SESSION_LEN 处，
-// 这里正好在它前面写上会话号，一次 sendto 发走，全程不再拷贝
+// 这里正好在它前面写上会话号，一次 sendto 发走，全程不再拷贝。
+// 超长不判断、不告警、不丢弃，交给 IP 分片
 bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len)
 {
 	char* pkt = (char*)payload - IPM_UDP_SESSION_LEN;
@@ -148,14 +123,30 @@ bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_
 	if (agent == NULL || agent->get_client_addr_len() == 0 || agent->get_client_fd() == -1)
 		return false;
 
-	warn_oversize(payload_len);
-
 	*(unsigned long long*)pkt = util::htonllx(id);
 
 	if (sendto(agent->get_client_fd(), pkt, (int)pkt_len, 0, agent->get_client_addr(), agent->get_client_addr_len()) < 0)
 		return false;
 
 	return true;
+}
+
+// agent 心跳缺席判死：摘掉并销毁，它名下的会话由 exit() 一并摘掉全局索引
+void ipm_server_udp::on_interface_ipm_server_udp_agent_dead(ipm_server_udp_agent* agent)
+{
+	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_udp_agent>>::iterator iter;
+	std::shared_ptr<ipm_server_udp_agent> keep;
+
+	if (agent == NULL)
+		return;
+
+	if ((iter = asa_agent.find(agent->get_addr_pkg_idx())) == asa_agent.end())
+		return;
+
+	// 攥住一份，保证 erase 之后对象活到回调返回（它的心跳定时器正在执行）
+	keep = iter->second;
+	keep->exit();
+	asa_agent.erase(iter);
 }
 
 // 控制口来包：前 8 字节为 0 是注册/心跳，非 0 是会话数据
@@ -214,11 +205,12 @@ bool ipm_server_udp::handle_register(evutil_socket_t fd, struct sockaddr* from_a
 		asa_agent[sag->get_addr_pkg_idx()] = sag;
 	}
 
-	// 客户端 NAT 重绑定后源地址会变，每次心跳都刷新，最新的赢
+	// 客户端 NAT 重绑定后源地址会变，每次心跳都刷新，最新的赢；
+	// 同时重置该 agent 的判死定时器
 	sag->set_client(fd, from_addr, from_len);
 
 	// 原样回显作为 ACK。客户端靠它判活、触发 DNS 重解析，
-	// 同时这一来一回也把 Linux conntrack 的 UDP 映射从 30s 提升到 180s
+	// 同时这一来一回也把 Linux conntrack 的 UDP 映射从未应答的 30s 提升到双向档
 	if (sendto(fd, pkt, (int)pkt_len, 0, from_addr, from_len) < 0)
 		return false;
 
@@ -245,53 +237,7 @@ bool ipm_server_udp::handle_data(char* pkt, size_t pkt_len)
 	return iter->second->agent->send_to_peer(iter->second.get(), pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_SESSION_LEN);
 }
 
-// 超长只告警不丢弃（与 ss 一致），但日志必须限流，否则高 pps 下会被日志打死
-void ipm_server_udp::warn_oversize(size_t payload_len)
-{
-	time_t now;
-
-	if (payload_len <= IPM_UDP_WARN_PAYLOAD)
-		return;
-
-	oversize_count++;
-	now = time(NULL);
-
-	if (now - last_oversize_log < 60)
-		return;
-
-	last_oversize_log = now;
-	slog_warn("udp payload %llu > %d, relying on IP fragmentation (%llu so far)", (unsigned long long)payload_len, IPM_UDP_WARN_PAYLOAD, oversize_count);
-}
-
-void ipm_server_udp::on_sweep_timer()
-{
-	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_udp_agent>>::iterator iter = asa_agent.begin();
-	time_t now = time(NULL);
-
-	while (iter != asa_agent.end())
-	{
-		// 心跳缺席就判定 agent 死亡。这一层不需要独立超时机制，心跳本身就够
-		if (now - iter->second->get_last_heartbeat() >= (time_t)IPM_UDP_AGENT_TIMEOUT)
-		{
-			slog_info("udp agent port %u heartbeat lost, closing", ntohl(iter->second->get_addr_pkg_idx().addr_pkg.port));
-			iter->second->exit();		// 会顺带摘掉它名下所有会话的全局索引
-			asa_agent.erase(iter++);
-		}
-		else
-		{
-			// 会话级的空闲老化：心跳保的是 agent 那条 NAT 映射，管不到会话
-			iter->second->sweep(now);
-			++iter;
-		}
-	}
-}
-
 void ipm_server_udp_readable_callback(evutil_socket_t fd, short events, void* user_data)
 {
 	if (user_data)	((ipm_server_udp*)user_data)->on_readable(fd);
-}
-
-void ipm_server_udp_sweep_callback(evutil_socket_t fd, short events, void* user_data)
-{
-	if (user_data)	((ipm_server_udp*)user_data)->on_sweep_timer();
 }
