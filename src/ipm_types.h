@@ -35,6 +35,9 @@ alloc_agent_package_t;
 #pragma pack()
 #endif
 
+// 注意：构造时清零是必须的。address_package_t 是 packed 的，配合 operator< 的
+// memcmp 才能当 map 的 key；而 sockaddr_to_address 对 v4 只写 ip 的前 4 字节，
+// 剩下 12 字节靠这里的清零兜底，否则同一个地址会算出两个不同的 key
 class addr_pkg_idx
 {
 public:
@@ -44,6 +47,61 @@ public:
 	}
 	address_package_t addr_pkg;
 };
+
+// 必须 inline 放在这里：原先它是 ipm_server.cpp 里的一个自由函数，没有任何头文件
+// 声明过，于是只有那一个编译单元能拿它当 map 的比较器，别处一用就是编译错误
+inline bool operator < (const addr_pkg_idx& item1, const addr_pkg_idx& item2)
+{
+	return memcmp(&item1.addr_pkg, &item2.addr_pkg, sizeof(address_package_t)) < 0;
+}
+
+// 与 shadowsocks 一致的三态：默认只开 TCP，-u 同时开 UDP，-U 只开 UDP
+enum class IPM_MODE : unsigned int
+{
+	TCP_ONLY,
+	TCP_AND_UDP,
+	UDP_ONLY,
+};
+
+// ── UDP 端口映射的线上格式 ────────────────────────────────────────────
+//
+// 沿用 TCP 控制连接那套判别方式：前 8 字节为 0 是控制包，非 0 是会话号。
+//
+//   客户端 → 服务端   前8字节 == 0 : 注册/心跳，整包按 alloc_agent_package_t 解析
+//   服务端 → 客户端   前8字节 == 0 : 上面那个包的 ACK（原样回显）
+//   两个方向          前8字节 != 0 : 数据，[8B session_id][payload][4B crc32]
+//
+// session_id 由服务端全局分配，随机播种的单调递增计数器 —— 不能用 fd：fd 会被
+// 立刻复用，迟到的数据报会被投递进复用了同一号码的另一个会话，造成跨会话串数据。
+// 随机播种是为了避免服务端重启后与客户端残留的会话撞号。
+//
+// 两处 socket 约束（改动前务必看懂，不是可以随手优化掉的）：
+//  1. 服务端对所有 agent、所有会话只用一个 UDP socket。客户端 NAT 的映射按
+//     (client_ip, client_port, server_ip, server_port) 匹配，换个源端口发过去
+//     会被严格 NAT 丢掉。
+//  2. 客户端每个 agent 只用一个 socket，心跳和数据必须走同一个 —— 会话正是靠
+//     蹭心跳维持的那条映射才免于各自保活的。
+#define IPM_UDP_SESSION_LEN			8
+#define IPM_UDP_CHECKSUM_LEN		4
+#define IPM_UDP_OVERHEAD			(IPM_UDP_SESSION_LEN + IPM_UDP_CHECKSUM_LEN)
+// 合法 UDP 数据报的上限。收包缓冲必须按它开：缓冲小了内核会静默截断，
+// 那比干脆丢弃更糟（转出去半个包）
+#define IPM_UDP_MAX_PAYLOAD			65507
+#define IPM_UDP_BUF_LEN				(IPM_UDP_OVERHEAD + IPM_UDP_MAX_PAYLOAD)
+// 超过它只告警不丢弃，交给 IP 分片。等价于 ss 的 packet_size：ss 那边同样
+// 只打一行 fragmentation 日志然后照转，丢弃会打断 EDNS0 的大 DNS 响应
+#define IPM_UDP_WARN_PAYLOAD		1400
+
+// 心跳按 TCP keepalive 的形状来，但间隔必须短得多：TCP 的 NAT 映射按 RFC 5382
+// 至少 2 小时 4 分，UDP 的在 Linux conntrack 上未应答时只有 30 秒
+#define IPM_UDP_HEARTBEAT_IDLE		20		// 秒，这么久没「收到」服务端任何包才发心跳
+#define IPM_UDP_REG_RETRY			2		// 秒，REGISTERING 下重发注册的间隔
+#define IPM_UDP_REG_TRIES			3		// 注册重试次数，用完转 WAITING 并重新解析 DNS
+#define IPM_UDP_HEARTBEAT_TRIES		5		// RUNNING 下连续这么多次没 ACK 判定失联
+#define IPM_UDP_AGENT_TIMEOUT		(IPM_UDP_HEARTBEAT_IDLE * 3)	// 秒，服务端判定 agent 死亡
+#define IPM_UDP_SESSION_TIMEOUT		180		// 秒，会话空闲超时默认值，-T 可配
+#define IPM_UDP_SWEEP_INTERVAL		10		// 秒，会话表清扫间隔
+#define IPM_UDP_MAX_SESSION			16384	// 会话表上限，防止扫描把 fd 和内存打爆
 
 #endif
 

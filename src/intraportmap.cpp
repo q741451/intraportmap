@@ -23,24 +23,55 @@ bool intraportmap::init(int argc, char* argv[])
 	if (register_signal_event() != true)
 		goto end;
 
+	// TCP 和 UDP 是两条互不相干的通路，可以同时开。任一路致命失败都会
+	// event_base_loopbreak 结束整个进程 —— 有意为之，交给外部 supervisor 重启，
+	// 不做「只拆自己」的半死状态
 	if (is_server)
 	{
 		slog_info("run as server");
-		sp_ipm_server = std::make_shared<ipm_server>(root_event_base, this);
-		if (sp_ipm_server->init(server_name.c_str(), server_port_name.c_str(), key.c_str(), (size_t)max_buffer) != true)
+
+		if (mode != IPM_MODE::UDP_ONLY)
 		{
-			slog_error("sp_ipm_server init error");
-			goto end;
+			sp_ipm_server = std::make_shared<ipm_server>(root_event_base, this);
+			if (sp_ipm_server->init(server_name.c_str(), server_port_name.c_str(), key.c_str(), (size_t)max_buffer) != true)
+			{
+				slog_error("sp_ipm_server init error");
+				goto end;
+			}
+		}
+
+		if (mode != IPM_MODE::TCP_ONLY)
+		{
+			sp_ipm_server_udp = std::make_shared<ipm_server_udp>(root_event_base, this);
+			if (sp_ipm_server_udp->init(server_name.c_str(), server_port_name.c_str(), key.c_str(), session_timeout) != true)
+			{
+				slog_error("sp_ipm_server_udp init error");
+				goto end;
+			}
 		}
 	}
 	else
 	{
 		slog_info("run as client");
-		sp_ipm_client = std::make_shared<ipm_client>(root_event_base, this);
-		if (sp_ipm_client->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time, key.c_str(), (size_t)max_buffer) != true)
+
+		if (mode != IPM_MODE::UDP_ONLY)
 		{
-			slog_error("sp_ipm_client init error");
-			goto end;
+			sp_ipm_client = std::make_shared<ipm_client>(root_event_base, this);
+			if (sp_ipm_client->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time, key.c_str(), (size_t)max_buffer) != true)
+			{
+				slog_error("sp_ipm_client init error");
+				goto end;
+			}
+		}
+
+		if (mode != IPM_MODE::TCP_ONLY)
+		{
+			sp_ipm_client_udp = std::make_shared<ipm_client_udp>(root_event_base, this);
+			if (sp_ipm_client_udp->init(server_name.c_str(), server_port_name.c_str(), to_server_name.c_str(), to_server_port_name.c_str(), from_server_name.c_str(), from_server_port_name.c_str(), client_reconn_time, key.c_str(), session_timeout) != true)
+			{
+				slog_error("sp_ipm_client_udp init error");
+				goto end;
+			}
 		}
 	}
 
@@ -85,6 +116,18 @@ bool intraportmap::exit()
 			sp_ipm_server->exit();
 	}
 
+	if (sp_ipm_client_udp)
+	{
+		if (sp_ipm_client_udp->is_init())
+			sp_ipm_client_udp->exit();
+	}
+
+	if (sp_ipm_server_udp)
+	{
+		if (sp_ipm_server_udp->is_init())
+			sp_ipm_server_udp->exit();
+	}
+
 	if (root_event_base)
 		event_base_free(root_event_base);
 
@@ -101,6 +144,8 @@ void intraportmap::reset()
 	is_state_init = false;
 	client_reconn_time = 15;
 	max_buffer = DEF_MAX_BUFFER;
+	mode = IPM_MODE::TCP_ONLY;
+	session_timeout = IPM_UDP_SESSION_TIMEOUT;
 	root_event_base = NULL;
 	signal_event = NULL;
 	if (sp_ipm_client)
@@ -113,6 +158,16 @@ void intraportmap::reset()
 		sp_ipm_server->reset();
 	}
 	sp_ipm_server.reset();
+	if (sp_ipm_client_udp)
+	{
+		sp_ipm_client_udp->reset();
+	}
+	sp_ipm_client_udp.reset();
+	if (sp_ipm_server_udp)
+	{
+		sp_ipm_server_udp->reset();
+	}
+	sp_ipm_server_udp.reset();
 }
 
 void intraportmap::exec()
@@ -132,6 +187,18 @@ void intraportmap::on_interface_ipm_server_fail()
 	event_base_loopbreak(root_event_base);
 }
 
+void intraportmap::on_interface_ipm_client_udp_fail()
+{
+	slog_error("on_interface_ipm_client_udp_fail");
+	event_base_loopbreak(root_event_base);
+}
+
+void intraportmap::on_interface_ipm_server_udp_fail()
+{
+	slog_error("on_interface_ipm_server_udp_fail");
+	event_base_loopbreak(root_event_base);
+}
+
 void intraportmap::on_signal_event(evutil_socket_t sig, short events)
 {
 	event_base_loopbreak(root_event_base);
@@ -145,10 +212,28 @@ bool intraportmap::init_config(int argc, char* argv[])
 	std::string from_full;
 	int opt = 0;
 
-	while ((opt = getopt(argc, argv, "cs:t:f:k:w:b:")) != -1) {
+	while ((opt = getopt(argc, argv, "cs:t:f:k:w:b:uUT:")) != -1) {
 		switch (opt) {
 		case 'c':
 			is_server = false;
+			break;
+		case 'u':
+			mode = IPM_MODE::TCP_AND_UDP;
+			break;
+		case 'U':
+			mode = IPM_MODE::UDP_ONLY;
+			break;
+		case 'T':
+			if (sscanf(optarg, "%u", &session_timeout) <= 0)
+			{
+				slog_error("error option T %s", optarg);
+				goto end;
+			}
+			if (session_timeout == 0)
+			{
+				slog_error("option T must be greater than 0");
+				goto end;
+			}
 			break;
 		case 's':
 			server_full = optarg;
