@@ -6,11 +6,6 @@ void ipm_server_bufferevent_data_read_callback(struct bufferevent* bev, void* ct
 void ipm_server_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_server_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
-bool operator < (const addr_pkg_idx& item1, const addr_pkg_idx& item2)
-{
-	return memcmp(&item1.addr_pkg, &item2.addr_pkg, sizeof(address_package_t)) < 0;
-}
-
 ipm_server::ipm_server(struct event_base* base, interface_ipm_server* ptr_interface_p) : ptr_interface(ptr_interface_p), root_event_base(base)
 {
 	reset();
@@ -387,7 +382,7 @@ void ipm_server::on_bufferevent_event(struct bufferevent* bev, short flag)
 bool ipm_server::start_listener(const struct sockaddr* addr, int addr_length)
 {
 	bool ret = false;
-	struct sockaddr_in6 zero_in6;
+	struct sockaddr_in addr_in4_all;
 
 	if (addr->sa_family == AF_INET6)
 	{
@@ -400,25 +395,14 @@ bool ipm_server::start_listener(const struct sockaddr* addr, int addr_length)
 			slog_error("ipv6 listen error");
 			goto end;
 		}
-			
 
-		memset(&zero_in6, 0, sizeof(zero_in6));
-
-		if (memcmp(&((struct sockaddr_in6*)addr)->sin6_addr, &zero_in6.sin6_addr, sizeof(zero_in6.sin6_addr)) == 0)
+		if (util::dual_stack_v4_fallback(addr, addr_in4_all))
 		{
 			// 监听所有，需要同时监听ipv4
-
-			struct sockaddr_in addr_in4_all;
-			memset(&addr_in4_all, 0, sizeof(struct sockaddr_in));
-			addr_in4_all.sin_family = AF_INET;
-			addr_in4_all.sin_addr.s_addr = htonl(INADDR_ANY);
-			addr_in4_all.sin_port = ((struct sockaddr_in6*)addr)->sin6_port;
-
 			if ((listener = evconnlistener_new_bind(root_event_base, ipm_server_listener_callback, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all))) == NULL)
 			{
 				slog_warn("dual-stack ipv4 listen error");
 			}
-
 		}
 	}
 	else if (addr->sa_family == AF_INET)

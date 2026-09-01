@@ -32,6 +32,8 @@ private:
 	struct event_base* root_event_base;
 	std::shared_ptr<ipm_client> sp_ipm_client;
 	std::shared_ptr<ipm_server> sp_ipm_server;
+	std::shared_ptr<ipm_client_udp> sp_ipm_client_udp;
+	std::shared_ptr<ipm_server_udp> sp_ipm_server_udp;
 	unsigned int client_reconn_time;
 	std::string server_name;
 	std::string server_port_name;
@@ -41,6 +43,8 @@ private:
 	std::string from_server_port_name;
 	std::string key;
 	unsigned long long max_buffer;
+	IPM_MODE mode;
+	unsigned int session_timeout;	// UDP 会话空闲超时，秒
 };
 
 #endif

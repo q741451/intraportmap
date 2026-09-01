@@ -27,6 +27,7 @@
 
 #include <signal.h>
 #include <memory.h>
+#include <time.h>
 
 #include <vector>
 #include <string>
@@ -47,7 +48,10 @@
 #include "ipm_server_tunnel.h"
 #include "ipm_server_agent.h"
 #include "ipm_server.h"
+#include "ipm_server_udp_agent.h"
+#include "ipm_server_udp.h"
 #include "ipm_client_tunnel.h"
+#include "ipm_client_udp.h"
 #include "ipm_client.h"
 #include "intraportmap.h"
 

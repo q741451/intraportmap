@@ -255,6 +255,193 @@ end:
 	return ret;
 }
 
+// 全进程共用的 UDP 收发缓冲。单线程事件循环下，一个包彻底处理完才会读下一个，
+// 收包路径也不会递归回自己，所以不存在重入。
+// 约定：调用方在 buf + IPM_UDP_SESSION_LEN 处收包，转发时把会话号写进它前面的
+// 8 字节，全程不用再拷贝一次载荷
+char* util::get_udp_buffer()
+{
+	static char udp_buffer[IPM_UDP_BUF_LEN];
+	return udp_buffer;
+}
+
+// 绑定的是 IPv6 通配地址（::）时，双栈还需要额外补一个 IPv4 通配绑定。
+// 返回 true 表示需要补，out_v4 已填成同端口的 0.0.0.0
+bool util::dual_stack_v4_fallback(const struct sockaddr* addr, struct sockaddr_in& out_v4)
+{
+	struct sockaddr_in6 zero_in6;
+
+	if (addr->sa_family != AF_INET6)
+		return false;
+
+	memset(&zero_in6, 0, sizeof(zero_in6));
+
+	if (memcmp(&((struct sockaddr_in6*)addr)->sin6_addr, &zero_in6.sin6_addr, sizeof(zero_in6.sin6_addr)) != 0)
+		return false;
+
+	memset(&out_v4, 0, sizeof(struct sockaddr_in));
+	out_v4.sin_family = AF_INET;
+	out_v4.sin_addr.s_addr = htonl(INADDR_ANY);
+	out_v4.sin_port = ((struct sockaddr_in6*)addr)->sin6_port;
+
+	return true;
+}
+
+// 建一个非阻塞 UDP socket 并绑定。v6only 只对 AF_INET6 有意义：
+// 与 TCP 侧一致，v6 只收 v6，v4 交给 dual_stack_v4_fallback 补的那个 socket
+evutil_socket_t util::bind_udp_socket(const struct sockaddr* addr, int addr_len, bool v6only)
+{
+	evutil_socket_t fd = -1;
+	bool ret = false;
+	int v6 = v6only ? 1 : 0;
+
+	if ((fd = socket(addr->sa_family, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+	{
+		slog_error("udp socket error");
+		goto end;
+	}
+
+	if (evutil_make_socket_nonblocking(fd) != 0)
+	{
+		slog_error("evutil_make_socket_nonblocking error");
+		goto end;
+	}
+
+	if (evutil_make_listen_socket_reuseable(fd) != 0)
+	{
+		slog_error("evutil_make_listen_socket_reuseable error");
+		goto end;
+	}
+
+#ifdef IPV6_V6ONLY
+	if (addr->sa_family == AF_INET6)
+	{
+		// 拿不到 v6only 不致命，退回内核默认行为即可
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&v6, sizeof(v6)) != 0)
+			slog_warn("IPV6_V6ONLY error");
+	}
+#endif
+
+	if (bind(fd, addr, addr_len) != 0)
+	{
+		slog_error("udp bind error");
+		goto end;
+	}
+
+	ret = true;
+end:
+	if (ret != true && fd != -1)
+	{
+		evutil_closesocket(fd);
+		fd = -1;
+	}
+	return fd;
+}
+
+ipm_udp_socket_pair::ipm_udp_socket_pair()
+	: fd4(-1), fd6(-1), event4(NULL), event6(NULL)
+{
+}
+
+bool ipm_udp_socket_pair::open(struct event_base* base, const struct sockaddr* addr, int addr_len, event_callback_fn cb, void* arg)
+{
+	bool ret = false;
+	struct sockaddr_in addr_in4_all;
+
+	if (addr->sa_family == AF_INET6)
+	{
+		if ((fd6 = util::bind_udp_socket(addr, addr_len, true)) == -1)
+		{
+			slog_error("udp ipv6 bind error");
+			goto end;
+		}
+
+		if (add_event(base, fd6, cb, arg, event6) != true)
+			goto end;
+
+		if (util::dual_stack_v4_fallback(addr, addr_in4_all))
+		{
+			// 监听所有，需要同时监听ipv4。与 TCP 侧一致，这一路失败只告警
+			if ((fd4 = util::bind_udp_socket((struct sockaddr*)&addr_in4_all, sizeof(addr_in4_all), false)) == -1)
+			{
+				slog_warn("dual-stack udp ipv4 bind error");
+			}
+			else if (add_event(base, fd4, cb, arg, event4) != true)
+			{
+				goto end;
+			}
+		}
+	}
+	else if (addr->sa_family == AF_INET)
+	{
+		if ((fd4 = util::bind_udp_socket(addr, addr_len, false)) == -1)
+		{
+			slog_error("udp ipv4 bind error");
+			goto end;
+		}
+
+		if (add_event(base, fd4, cb, arg, event4) != true)
+			goto end;
+	}
+	else
+	{
+		slog_error("unknown sa_family udp bind error");
+		goto end;
+	}
+
+	ret = true;
+end:
+	if (ret != true)
+		close();
+	return ret;
+}
+
+void ipm_udp_socket_pair::close()
+{
+	if (event4)
+	{
+		event_free(event4);
+		event4 = NULL;
+	}
+
+	if (event6)
+	{
+		event_free(event6);
+		event6 = NULL;
+	}
+
+	if (fd4 != -1)
+	{
+		evutil_closesocket(fd4);
+		fd4 = -1;
+	}
+
+	if (fd6 != -1)
+	{
+		evutil_closesocket(fd6);
+		fd6 = -1;
+	}
+}
+
+bool ipm_udp_socket_pair::add_event(struct event_base* base, evutil_socket_t fd, event_callback_fn cb, void* arg, struct event*& out_event)
+{
+	if ((out_event = event_new(base, fd, EV_READ | EV_PERSIST, cb, arg)) == NULL)
+	{
+		slog_error("event_new error");
+		return false;
+	}
+
+	if (event_add(out_event, NULL) != 0)
+	{
+		slog_error("event_add error");
+		event_free(out_event);
+		out_event = NULL;
+		return false;
+	}
+
+	return true;
+}
+
 unsigned long long util::ntohllx(unsigned long long x)
 {
 	int ret_val[2] = { 0 };
