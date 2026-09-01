@@ -225,7 +225,9 @@ bool intraportmap::register_signal_event()
 
 	ret = true;
 end:
-	if (signal_event)
+	// 只在失败时释放。之前无条件释放，成功路径上刚 event_add 的 event 转头就被
+	// free 掉，SIGINT 走系统默认处置直接杀进程，exit() 里的清理一行都跑不到
+	if (ret != true && signal_event)
 	{
 		event_free(signal_event);
 		signal_event = NULL;
