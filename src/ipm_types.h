@@ -69,7 +69,13 @@ enum class IPM_MODE : unsigned int
 //
 //   客户端 → 服务端   前8字节 == 0 : 注册/心跳，整包按 alloc_agent_package_t 解析
 //   服务端 → 客户端   前8字节 == 0 : 上面那个包的 ACK（原样回显）
-//   两个方向          前8字节 != 0 : 数据，[8B session_id][payload][4B crc32]
+//   两个方向          前8字节 != 0 : 数据，[8B session_id][payload]
+//
+// 只有控制包带校验和，数据包不带 —— 与 TCP 侧一致，那边转发的字节流同样只在
+// alloc/penetrate 这类控制包上校验。UDP 本身已有传输层校验和覆盖完整性，再叠
+// 一层带 key 的 CRC32 是冗余；且 CRC32 线性，本来也不构成 MAC，留着只是每包一次
+// 全量计算的开销。防注入靠的是 64 位随机播种的会话号（off-path 需猜中 2^64），
+// 客户端侧的 socket 还是 connect() 过的，内核只收服务端地址来的包。
 //
 // session_id 由服务端全局分配，随机播种的单调递增计数器 —— 不能用 fd：fd 会被
 // 立刻复用，迟到的数据报会被投递进复用了同一号码的另一个会话，造成跨会话串数据。
@@ -82,12 +88,10 @@ enum class IPM_MODE : unsigned int
 //  2. 客户端每个 agent 只用一个 socket，心跳和数据必须走同一个 —— 会话正是靠
 //     蹭心跳维持的那条映射才免于各自保活的。
 #define IPM_UDP_SESSION_LEN			8
-#define IPM_UDP_CHECKSUM_LEN		4
-#define IPM_UDP_OVERHEAD			(IPM_UDP_SESSION_LEN + IPM_UDP_CHECKSUM_LEN)
 // 合法 UDP 数据报的上限。收包缓冲必须按它开：缓冲小了内核会静默截断，
 // 那比干脆丢弃更糟（转出去半个包）
 #define IPM_UDP_MAX_PAYLOAD			65507
-#define IPM_UDP_BUF_LEN				(IPM_UDP_OVERHEAD + IPM_UDP_MAX_PAYLOAD)
+#define IPM_UDP_BUF_LEN				(IPM_UDP_SESSION_LEN + IPM_UDP_MAX_PAYLOAD)
 // 超过它只告警不丢弃，交给 IP 分片。等价于 ss 的 packet_size：ss 那边同样
 // 只打一行 fragmentation 日志然后照转，丢弃会打断 EDNS0 的大 DNS 响应
 #define IPM_UDP_WARN_PAYLOAD		1400

@@ -139,11 +139,11 @@ void ipm_server_udp::on_interface_ipm_server_udp_agent_del_session(unsigned long
 }
 
 // 访客的载荷已经躺在 util::get_udp_buffer() + IPM_UDP_SESSION_LEN 处，
-// 这里正好在它前面写会话号、后面补校验，一次 sendto 发走，全程不再拷贝
+// 这里正好在它前面写上会话号，一次 sendto 发走，全程不再拷贝
 bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len)
 {
 	char* pkt = (char*)payload - IPM_UDP_SESSION_LEN;
-	size_t pkt_len = IPM_UDP_SESSION_LEN + payload_len + IPM_UDP_CHECKSUM_LEN;
+	size_t pkt_len = IPM_UDP_SESSION_LEN + payload_len;
 
 	if (agent == NULL || agent->get_client_addr_len() == 0 || agent->get_client_fd() == -1)
 		return false;
@@ -151,7 +151,6 @@ bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_
 	warn_oversize(payload_len);
 
 	*(unsigned long long*)pkt = util::htonllx(id);
-	util::set_checksum_fast(key.c_str(), pkt, pkt_len);
 
 	if (sendto(agent->get_client_fd(), pkt, (int)pkt_len, 0, agent->get_client_addr(), agent->get_client_addr_len()) < 0)
 		return false;
@@ -231,10 +230,7 @@ bool ipm_server_udp::handle_data(char* pkt, size_t pkt_len)
 	std::map<unsigned long long, std::shared_ptr<ipm_udp_session>>::iterator iter;
 	unsigned long long index = 0;
 
-	if (pkt_len < IPM_UDP_OVERHEAD)
-		return false;
-
-	if (util::check_checksum_fast(key.c_str(), pkt, pkt_len) != true)
+	if (pkt_len < IPM_UDP_SESSION_LEN)
 		return false;
 
 	index = util::ntohllx(*(unsigned long long*)pkt);
@@ -246,7 +242,7 @@ bool ipm_server_udp::handle_data(char* pkt, size_t pkt_len)
 	if (iter->second->agent == NULL)
 		return false;
 
-	return iter->second->agent->send_to_peer(iter->second.get(), pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_OVERHEAD);
+	return iter->second->agent->send_to_peer(iter->second.get(), pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_SESSION_LEN);
 }
 
 // 超长只告警不丢弃（与 ss 一致），但日志必须限流，否则高 pps 下会被日志打死

@@ -372,11 +372,6 @@ void ipm_client_udp::on_server_readable(evutil_socket_t fd)
 		return;
 	}
 
-	if (recv_len < (int)IPM_UDP_OVERHEAD)
-		return;
-	if (util::check_checksum_fast(key.c_str(), buf, (size_t)recv_len) != true)
-		return;
-
 	last_recv = time(NULL);
 	hb_pending = false;
 	hb_miss = 0;
@@ -394,7 +389,7 @@ void ipm_client_udp::on_server_readable(evutil_socket_t fd)
 	}
 
 	session->last_seen = time(NULL);
-	send(session->fd, buf + IPM_UDP_SESSION_LEN, recv_len - (int)IPM_UDP_OVERHEAD, 0);
+	send(session->fd, buf + IPM_UDP_SESSION_LEN, recv_len - (int)IPM_UDP_SESSION_LEN, 0);
 }
 
 // 被代理主机回包：套上会话号和校验发回服务端
@@ -414,9 +409,8 @@ void ipm_client_udp::on_session_readable(evutil_socket_t fd, ipm_client_udp_sess
 
 	session->last_seen = time(NULL);
 
-	pkt_len = IPM_UDP_SESSION_LEN + (size_t)recv_len + IPM_UDP_CHECKSUM_LEN;
+	pkt_len = IPM_UDP_SESSION_LEN + (size_t)recv_len;
 	*(unsigned long long*)buf = util::htonllx(session->id);
-	util::set_checksum_fast(key.c_str(), buf, pkt_len);
 
 	send(server_fd, buf, (int)pkt_len, 0);
 }

@@ -149,38 +149,6 @@ bool util::check_checksum(const char* key, const char* data, size_t sz_len)
 	return *(unsigned int*)(data + sz_len - 4) == htonl(calc::crc32(0, check_buf.c_str(), check_buf.size()));
 }
 
-// 与 set_checksum / check_checksum 完全等价，但不把 payload 拷进 std::string。
-// crc32 前后各异或一次 0xffffffff，所以链式调用等价于把三段拼起来再算一次：
-//   crc32(crc32(0, A), B) == crc32(0, A||B)
-// UDP 数据面每包都要算，那份 append 的实现会每包一次 malloc + memcpy 整个载荷
-static unsigned int ipm_keyed_crc32(const char* key, const char* data, size_t sz_len)
-{
-	size_t key_len = strlen(key);
-	unsigned int crc;
-
-	crc = calc::crc32(0, key, key_len);
-	crc = calc::crc32(crc, data, sz_len);
-	crc = calc::crc32(crc, key, key_len);
-
-	return crc;
-}
-
-void util::set_checksum_fast(const char* key, char* data, size_t sz_len)
-{
-	if (sz_len < 4)
-		return;
-
-	*(unsigned int*)(data + sz_len - 4) = htonl(ipm_keyed_crc32(key, data, sz_len - 4));
-}
-
-bool util::check_checksum_fast(const char* key, const char* data, size_t sz_len)
-{
-	if (sz_len < 4)
-		return false;
-
-	return *(unsigned int*)(data + sz_len - 4) == htonl(ipm_keyed_crc32(key, data, sz_len - 4));
-}
-
 std::string util::get_ipname_from_sockaddr(struct sockaddr* res)
 {
 	std::string buf_string;
