@@ -267,6 +267,8 @@ bool ipm_client_udp::open_server_socket()
 		goto end;
 	}
 
+	ipm_udp_io::enable_gro(server_fd);
+
 	if ((server_read_event = event_new(root_event_base, server_fd, EV_READ | EV_PERSIST, ipm_client_udp_server_readable_callback, this)) == NULL)
 	{
 		slog_error("event_new error");
@@ -329,71 +331,85 @@ bool ipm_client_udp::send_register()
 	return true;
 }
 
-// 服务端来包：前 8 字节为 0 是注册 ACK，非 0 是会话数据
+// 服务端来包：前 8 字节为 0 是注册 ACK，非 0 是会话数据。
+// -G 下一次可能收到好几个包，各属于哪条会话不一定，逐个处理
 void ipm_client_udp::on_server_readable(evutil_socket_t fd)
 {
 	char* buf = util::get_udp_buffer();
 	std::map<unsigned long long, std::shared_ptr<ipm_client_udp_session>>::iterator iter;
 	std::shared_ptr<ipm_client_udp_session> session;
+	alloc_agent_package_t ack;
+	ipm_udp_recv rcv;
+	ipm_udp_batch out;
 	unsigned long long index = 0;
-	int recv_len = 0;
+	char* pkt = NULL;
+	size_t pkt_len = 0;
 
-	recv_len = recv(fd, buf, IPM_UDP_BUF_LEN, 0);
-	if (recv_len < (int)IPM_UDP_SESSION_LEN)
+	if (rcv.read(fd, buf, IPM_UDP_BUF_LEN, NULL, NULL) != true)
 		return;
 
-	index = util::ntohllx(*(unsigned long long*)buf);
-
-	if (index == 0)
+	while (rcv.next(pkt, pkt_len))
 	{
-		// 注册 ACK
-		if (recv_len != (int)sizeof(alloc_agent_package_t))
-			return;
-		if (util::check_checksum(key.c_str(), buf, (size_t)recv_len) != true)
-			return;
+		if (pkt_len < IPM_UDP_SESSION_LEN)
+			continue;
+
+		// 合并收上来的包首尾相接，后面几个的起点不一定对齐，一律拷出来再读，
+		// 否则在要求对齐的 CPU（MIPS 等）上会 SIGBUS
+		memcpy(&index, pkt, sizeof(index));
+		index = util::ntohllx(index);
+
+		if (index == 0)
+		{
+			// 注册 ACK
+			if (pkt_len != sizeof(alloc_agent_package_t))
+				continue;
+			memcpy(&ack, pkt, sizeof(ack));
+			if (util::check_checksum(key.c_str(), (const char*)&ack, sizeof(ack)) != true)
+				continue;
+
+			last_recv = time(NULL);
+			hb_pending = false;
+			hb_miss = 0;
+
+			if (client_state == CLIENT_STATE::SERVER_REGISTERING)
+			{
+				slog_info("udp registered, port = %u", ntohl(ack.addr_pkg.port));
+				client_state = CLIENT_STATE::RUNNING;
+			}
+			continue;
+		}
 
 		last_recv = time(NULL);
 		hb_pending = false;
 		hb_miss = 0;
 
-		if (client_state == CLIENT_STATE::SERVER_REGISTERING)
+		if ((iter = mis_session.find(index)) != mis_session.end())
 		{
-			slog_info("udp registered, port = %u", ntohl(((alloc_agent_package_t*)buf)->addr_pkg.port));
-			client_state = CLIENT_STATE::RUNNING;
+			session = iter->second;
 		}
-		return;
-	}
+		else
+		{
+			// 陌生会话号就是新会话 —— 服务端不用先握手，第一个包直接带数据，
+			// 比 TCP 那边还要先回连一次省一个来回
+			if ((session = new_session(index)) == NULL)
+				continue;
+		}
 
-	last_recv = time(NULL);
-	hb_pending = false;
-	hb_miss = 0;
-
-	if ((iter = mis_session.find(index)) != mis_session.end())
-	{
-		session = iter->second;
+		event_add(session->timer, session_tv);
+		out.add(session->fd, NULL, 0, 0, pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_SESSION_LEN);
 	}
-	else
-	{
-		// 陌生会话号就是新会话 —— 服务端不用先握手，第一个包直接带数据，
-		// 比 TCP 那边还要先回连一次省一个来回
-		if ((session = new_session(index)) == NULL)
-			return;
-	}
-
-	event_add(session->timer, session_tv);
-	send(session->fd, buf + IPM_UDP_SESSION_LEN, recv_len - (int)IPM_UDP_SESSION_LEN, 0);
 }
 
-// 被代理主机回包：套上会话号和校验发回服务端
+// 被代理主机回包：套上会话号发回服务端
 void ipm_client_udp::on_session_readable(evutil_socket_t fd, ipm_client_udp_session* session)
 {
 	char* buf = util::get_udp_buffer();
-	char* payload = buf + IPM_UDP_SESSION_LEN;
-	size_t pkt_len = 0;
-	int recv_len = 0;
+	ipm_udp_recv rcv;
+	ipm_udp_batch out;
+	char* payload = NULL;
+	size_t payload_len = 0;
 
-	recv_len = recv(fd, payload, IPM_UDP_MAX_PAYLOAD, 0);
-	if (recv_len < 0)
+	if (rcv.read(fd, buf, IPM_UDP_BUF_LEN, NULL, NULL) != true)
 		return;
 
 	if (server_fd == -1)
@@ -401,10 +417,8 @@ void ipm_client_udp::on_session_readable(evutil_socket_t fd, ipm_client_udp_sess
 
 	event_add(session->timer, session_tv);
 
-	pkt_len = IPM_UDP_SESSION_LEN + (size_t)recv_len;
-	*(unsigned long long*)buf = util::htonllx(session->id);
-
-	send(server_fd, buf, (int)pkt_len, 0);
+	while (rcv.next(payload, payload_len))
+		out.add(server_fd, NULL, 0, session->id, payload, payload_len);
 }
 
 std::shared_ptr<ipm_client_udp_session> ipm_client_udp::new_session(unsigned long long id)
@@ -427,6 +441,8 @@ std::shared_ptr<ipm_client_udp_session> ipm_client_udp::new_session(unsigned lon
 	// connect 到被代理主机：回包只会从它来，用 recv 即可
 	if (connect(session->fd, (struct sockaddr*)&from_server_addr, from_server_addr_len) != 0)
 		goto fail;
+
+	ipm_udp_io::enable_gro(session->fd);
 
 	if ((session->read_event = event_new(root_event_base, session->fd, EV_READ | EV_PERSIST, ipm_client_udp_session_readable_callback, session.get())) == NULL)
 		goto fail;

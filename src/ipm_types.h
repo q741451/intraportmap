@@ -87,11 +87,17 @@ enum class IPM_MODE : unsigned int
 //  2. 客户端每个 agent 只用一个 socket，心跳和数据必须走同一个 —— 会话正是靠
 //     蹭心跳维持的那条映射才免于各自保活的。
 #define IPM_UDP_SESSION_LEN			8
-// 合法 UDP 数据报的上限。收包缓冲必须按它开：缓冲小了内核会静默截断，
-// 那比干脆丢弃更糟（转出去半个包）。
-// 超长不判断、不告警、不丢弃，一律照转，交给 IP 分片
+// IPv4 UDP 数据报载荷的上限（65535 - 20 - 8）
 #define IPM_UDP_MAX_PAYLOAD			65507
-#define IPM_UDP_BUF_LEN				(IPM_UDP_SESSION_LEN + IPM_UDP_MAX_PAYLOAD)
+// 收包缓冲。必须开足：缓冲小了内核会静默截断，那比干脆丢弃更糟（转出去半个包）。
+// 64KB 装得下任何单个数据报（IPv6 最大 65527），也装得下 -G 下 GRO 合并的一批
+// （内核把合并后的总长限制在 64KB 以内）。
+// 超长不判断、不告警、不丢弃，一律照转，交给 IP 分片
+#define IPM_UDP_BUF_LEN				65536
+// -G 下一次 GSO 发送的上限：段数是内核 4.18 起的 UDP_MAX_SEGMENTS，
+// 总长不能超过一个 IPv4 数据报
+#define IPM_UDP_GSO_MAX_SEGS		64
+#define IPM_UDP_GSO_MAX_BYTES		IPM_UDP_MAX_PAYLOAD
 
 // 心跳沿用 TCP keepalive 的形状（空闲触发，随后密集探测），但间隔必须短得多：
 // TCP 的 NAT 映射按 RFC 5382 至少 2 小时 4 分，UDP 的在 Linux conntrack 上未应答

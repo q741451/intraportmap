@@ -200,7 +200,7 @@ bool intraportmap::init_config(int argc, char* argv[])
 	std::string from_full;
 	int opt = 0;
 
-	while ((opt = getopt(argc, argv, "cs:t:f:k:w:b:uUT:")) != -1) {
+	while ((opt = getopt(argc, argv, "cs:t:f:k:w:b:uUT:G")) != -1) {
 		switch (opt) {
 		case 'c':
 			is_server = false;
@@ -210,6 +210,11 @@ bool intraportmap::init_config(int argc, char* argv[])
 			break;
 		case 'U':
 			mode = IPM_MODE::UDP_ONLY;
+			break;
+		case 'G':
+			// 只影响本端怎么收发，线上格式不变，两端各开各的。内核不支持就拒绝启动
+			if (ipm_udp_io::set_batch(true) != true)
+				goto end;
 			break;
 		case 'T':
 			if (sscanf(optarg, "%u", &session_timeout) <= 0)

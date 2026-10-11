@@ -105,21 +105,14 @@ void ipm_server_udp::on_interface_ipm_server_udp_agent_del_session(unsigned long
 	mis_session.erase(id);
 }
 
-// 访客的载荷已经躺在 util::get_udp_buffer() + IPM_UDP_SESSION_LEN 处，
-// 这里正好在它前面写上会话号，一次 sendto 发走，全程不再拷贝。
-// 超长不判断、不告警、不丢弃，交给 IP 分片
-bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len)
+// 加上会话号发给该 agent 的客户端。会话号不写进收包缓冲，由 out 拼在载荷前面，
+// 载荷全程不拷贝。超长不判断、不告警、不丢弃，交给 IP 分片
+bool ipm_server_udp::on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len, ipm_udp_batch& out)
 {
-	char* pkt = (char*)payload - IPM_UDP_SESSION_LEN;
-	size_t pkt_len = IPM_UDP_SESSION_LEN + payload_len;
-
 	if (agent == NULL || agent->get_client_addr_len() == 0 || agent->get_client_fd() == -1)
 		return false;
 
-	*(unsigned long long*)pkt = util::htonllx(id);
-
-	if (sendto(agent->get_client_fd(), pkt, (int)pkt_len, 0, agent->get_client_addr(), agent->get_client_addr_len()) < 0)
-		return false;
+	out.add(agent->get_client_fd(), agent->get_client_addr(), agent->get_client_addr_len(), id, payload, payload_len);
 
 	return true;
 }
@@ -142,27 +135,45 @@ void ipm_server_udp::on_interface_ipm_server_udp_agent_dead(ipm_server_udp_agent
 	asa_agent.erase(iter);
 }
 
-// 控制口来包：前 8 字节为 0 是注册/心跳，非 0 是会话数据
+// 控制口来包：前 8 字节为 0 是注册/心跳，非 0 是会话数据。
+// -G 下一次可能收到同一个客户端的好几个包，逐个处理
 void ipm_server_udp::on_readable(evutil_socket_t fd)
 {
 	char* buf = util::get_udp_buffer();
 	struct sockaddr_storage from_addr;
 	ev_socklen_t from_len = sizeof(from_addr);
+	ipm_udp_recv rcv;
+	ipm_udp_batch out;
+	alloc_agent_package_t ag_agent;
 	unsigned long long index = 0;
-	int recv_len = 0;
+	char* pkt = NULL;
+	size_t pkt_len = 0;
 
 	memset(&from_addr, 0, sizeof(from_addr));
 
-	recv_len = recvfrom(fd, buf, IPM_UDP_BUF_LEN, 0, (struct sockaddr*)&from_addr, &from_len);
-	if (recv_len < (int)IPM_UDP_SESSION_LEN)
+	if (rcv.read(fd, buf, IPM_UDP_BUF_LEN, (struct sockaddr*)&from_addr, &from_len) != true)
 		return;
 
-	index = util::ntohllx(*(unsigned long long*)buf);
+	while (rcv.next(pkt, pkt_len))
+	{
+		if (pkt_len < IPM_UDP_SESSION_LEN)
+			continue;
 
-	if (index == 0)
-		handle_register(fd, (struct sockaddr*)&from_addr, from_len, buf, (size_t)recv_len);
-	else
-		handle_data(buf, (size_t)recv_len);
+		// 合并收上来的包首尾相接，后面几个的起点不一定对齐，一律拷出来再读，
+		// 否则在要求对齐的 CPU（MIPS 等）上会 SIGBUS
+		memcpy(&index, pkt, sizeof(index));
+		index = util::ntohllx(index);
+
+		if (index == 0)
+		{
+			if (pkt_len != sizeof(alloc_agent_package_t))
+				continue;
+			memcpy(&ag_agent, pkt, sizeof(ag_agent));
+			handle_register(fd, (struct sockaddr*)&from_addr, from_len, (char*)&ag_agent, sizeof(ag_agent));
+		}
+		else
+			handle_data(index, pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_SESSION_LEN, out);
+	}
 }
 
 bool ipm_server_udp::handle_register(evutil_socket_t fd, struct sockaddr* from_addr, unsigned int from_len, char* pkt, size_t pkt_len)
@@ -210,15 +221,9 @@ bool ipm_server_udp::handle_register(evutil_socket_t fd, struct sockaddr* from_a
 	return true;
 }
 
-bool ipm_server_udp::handle_data(char* pkt, size_t pkt_len)
+bool ipm_server_udp::handle_data(unsigned long long index, const char* payload, size_t payload_len, ipm_udp_batch& out)
 {
 	std::map<unsigned long long, std::shared_ptr<ipm_udp_session>>::iterator iter;
-	unsigned long long index = 0;
-
-	if (pkt_len < IPM_UDP_SESSION_LEN)
-		return false;
-
-	index = util::ntohllx(*(unsigned long long*)pkt);
 
 	// 会话可能已经老化掉了，或者是迟到的陈包，丢掉即可
 	if ((iter = mis_session.find(index)) == mis_session.end())
@@ -227,7 +232,7 @@ bool ipm_server_udp::handle_data(char* pkt, size_t pkt_len)
 	if (iter->second->agent == NULL)
 		return false;
 
-	return iter->second->agent->send_to_peer(iter->second.get(), pkt + IPM_UDP_SESSION_LEN, pkt_len - IPM_UDP_SESSION_LEN);
+	return iter->second->agent->send_to_peer(iter->second.get(), payload, payload_len, out);
 }
 
 void ipm_server_udp_readable_callback(evutil_socket_t fd, short events, void* user_data)
