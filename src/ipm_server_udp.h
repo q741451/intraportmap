@@ -16,7 +16,7 @@ public:
 public:
 	virtual bool on_interface_ipm_server_udp_agent_new_session(std::shared_ptr<ipm_udp_session>& session);
 	virtual void on_interface_ipm_server_udp_agent_del_session(unsigned long long id);
-	virtual bool on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len);
+	virtual bool on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len, ipm_udp_batch& out);
 	virtual void on_interface_ipm_server_udp_agent_dead(ipm_server_udp_agent* agent);
 
 public:
@@ -24,7 +24,7 @@ public:
 
 private:
 	bool handle_register(evutil_socket_t fd, struct sockaddr* from_addr, unsigned int from_len, char* pkt, size_t pkt_len);
-	bool handle_data(char* pkt, size_t pkt_len);
+	bool handle_data(unsigned long long index, const char* payload, size_t payload_len, ipm_udp_batch& out);
 	unsigned long long next_session_id();
 
 private:

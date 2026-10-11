@@ -69,6 +69,11 @@ bool slog::log(const char* cTitile, const char* format, va_list pargs)
 	va_end(args);
 
 	printf("%s", cLog);
+	// stdout 接到文件或管道（重定向、procd 收日志）时是全缓冲，不刷的话日志要攒满
+	// 一块才出来，进程被杀时还留在缓冲里的几行就丢了，偏偏是最后那几行最要紧。
+	// 不用 setvbuf(_IOLBF)：Windows 的 CRT 不支持行缓冲，会当成全缓冲。
+	// 日志都在控制路径上，每行刷一次没有性能影响
+	fflush(stdout);
 
 	ret = true;
 // end:

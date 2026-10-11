@@ -255,10 +255,9 @@ end:
 	return ret;
 }
 
-// 全进程共用的 UDP 收发缓冲。单线程事件循环下，一个包彻底处理完才会读下一个，
-// 收包路径也不会递归回自己，所以不存在重入。
-// 约定：调用方在 buf + IPM_UDP_SESSION_LEN 处收包，转发时把会话号写进它前面的
-// 8 字节，全程不用再拷贝一次载荷
+// 全进程共用的 UDP 收包缓冲。单线程事件循环下，一次收到的包在本次回调里全部
+// 转发完（ipm_udp_batch 在回调返回前 flush）才会读下一次，收包路径也不会递归回
+// 自己，所以不存在重入。转发时会话头由 ipm_udp_batch 拼在载荷前面，载荷不再拷贝
 char* util::get_udp_buffer()
 {
 	static char udp_buffer[IPM_UDP_BUF_LEN];
@@ -327,6 +326,9 @@ evutil_socket_t util::bind_udp_socket(const struct sockaddr* addr, int addr_len,
 		slog_error("udp bind error");
 		goto end;
 	}
+
+	// 控制口和 agent 公网口都收数据，-G 下打开 GRO
+	ipm_udp_io::enable_gro(fd);
 
 	ret = true;
 end:

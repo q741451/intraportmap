@@ -41,8 +41,8 @@ public:
 	virtual bool on_interface_ipm_server_udp_agent_new_session(std::shared_ptr<ipm_udp_session>& session) = 0;
 	// 会话被回收，上层同步摘掉全局索引
 	virtual void on_interface_ipm_server_udp_agent_del_session(unsigned long long id) = 0;
-	// 把一个数据包发给该 agent 注册时记下的客户端地址
-	virtual bool on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len) = 0;
+	// 把一个数据包发给该 agent 注册时记下的客户端地址，经 out 攒批发出
+	virtual bool on_interface_ipm_server_udp_agent_to_client(ipm_server_udp_agent* agent, unsigned long long id, const char* payload, size_t payload_len, ipm_udp_batch& out) = 0;
 	// 心跳超时，该 agent 判死，请上层摘掉并销毁
 	virtual void on_interface_ipm_server_udp_agent_dead(ipm_server_udp_agent* agent) = 0;
 };
@@ -68,7 +68,7 @@ public:
 
 	// 客户端回来的数据，原路发给访客。会话自带 from_fd 和 peer_addr，
 	// 双栈下必须从访客进来的那个 socket 出去
-	bool send_to_peer(ipm_udp_session* session, const char* payload, size_t payload_len);
+	bool send_to_peer(ipm_udp_session* session, const char* payload, size_t payload_len, ipm_udp_batch& out);
 
 public:
 	void on_readable(evutil_socket_t fd);

@@ -157,25 +157,27 @@ unsigned int ipm_server_udp_agent::get_client_addr_len()
 	return client_addr_len;
 }
 
-// 访客来包：查/建会话，然后原样交给客户端
+// 访客来包：查/建会话，然后原样交给客户端。
+// -G 下一次可能收到好几个包，GRO 只合并同一条流，所以它们都来自同一个访客
 void ipm_server_udp_agent::on_readable(evutil_socket_t fd)
 {
 	char* buf = util::get_udp_buffer();
-	char* payload = buf + IPM_UDP_SESSION_LEN;
 	struct sockaddr_storage from_addr;
 	ev_socklen_t from_len = sizeof(from_addr);
 	std::map<addr_pkg_idx, std::shared_ptr<ipm_udp_session>>::iterator iter;
 	std::shared_ptr<ipm_udp_session> session;
 	addr_pkg_idx peer_idx;
+	ipm_udp_recv rcv;
+	ipm_udp_batch out;
 	unsigned int port = 0;
 	unsigned int is_ipv6 = 0;
-	int recv_len = 0;
+	char* payload = NULL;
+	size_t payload_len = 0;
 
 	memset(&from_addr, 0, sizeof(from_addr));
 
-	// 一次只收一个包，收完就回事件循环，避免一个高速会话饿死其他 socket
-	recv_len = recvfrom(fd, payload, IPM_UDP_MAX_PAYLOAD, 0, (struct sockaddr*)&from_addr, &from_len);
-	if (recv_len < 0)
+	// 每次回调只收一次，收完就回事件循环，避免一个高速会话饿死其他 socket
+	if (rcv.read(fd, buf, IPM_UDP_BUF_LEN, (struct sockaddr*)&from_addr, &from_len) != true)
 		return;
 
 	// 客户端还没注册上来（或映射刚断），没地方转，直接丢
@@ -218,19 +220,21 @@ void ipm_server_udp_agent::on_readable(evutil_socket_t fd)
 
 	event_add(session->timer, session_tv);
 
-	if (ptr_interface)
-		ptr_interface->on_interface_ipm_server_udp_agent_to_client(this, session->id, payload, (size_t)recv_len);
+	if (!ptr_interface)
+		return;
+
+	while (rcv.next(payload, payload_len))
+		ptr_interface->on_interface_ipm_server_udp_agent_to_client(this, session->id, payload, payload_len, out);
 }
 
-bool ipm_server_udp_agent::send_to_peer(ipm_udp_session* session, const char* payload, size_t payload_len)
+bool ipm_server_udp_agent::send_to_peer(ipm_udp_session* session, const char* payload, size_t payload_len, ipm_udp_batch& out)
 {
 	if (session == NULL || session->from_fd == -1)
 		return false;
 
 	event_add(session->timer, session_tv);
 
-	if (sendto(session->from_fd, payload, (int)payload_len, 0, (const struct sockaddr*)&session->peer_addr, session->peer_addr_len) < 0)
-		return false;
+	out.add(session->from_fd, (const struct sockaddr*)&session->peer_addr, session->peer_addr_len, 0, payload, payload_len);
 
 	return true;
 }

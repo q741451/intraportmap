@@ -15,6 +15,7 @@
 #include "getopt/getopt.h"
 #else
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <sys/syscall.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -25,6 +26,7 @@
 #define VERBOSE_DEBUG 0
 #define DEF_MAX_BUFFER (1024 * 1024)
 
+#include <errno.h>
 #include <signal.h>
 #include <memory.h>
 #include <time.h>
@@ -45,6 +47,7 @@
 #include "crc32.h"
 #include "util.h"
 #include "ipm_types.h"
+#include "ipm_udp_io.h"
 #include "ipm_server_tunnel.h"
 #include "ipm_server_agent.h"
 #include "ipm_server.h"
