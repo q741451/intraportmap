@@ -170,6 +170,7 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 {
 	bool ret = false;
 	struct bufferevent* buff_bev = NULL;
+	unsigned long long index = 0;
 
 	if (fd == -1)
 	{
@@ -177,7 +178,15 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 		goto end;
 	}
 
-	slog_info("server_agent %p new tunnel %llu", client_bufferevent, (unsigned long long)fd);
+	if (!ptr_interface)
+	{
+		slog_error("ptr_interface empty");
+		goto end;
+	}
+
+	index = ptr_interface->on_interface_ipm_server_agent_next_tunnel_index();
+
+	slog_info("server_agent %p new tunnel %llu fd %llu", client_bufferevent, index, (unsigned long long)fd);
 
 	if (util::set_evutil_socket_keepalive(fd) != true)
 	{
@@ -192,23 +201,17 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 	}
 
 	// 通知客户端
-	if (send_penetrate(client_bufferevent, (unsigned long long)fd) != true)
+	if (send_penetrate(client_bufferevent, index) != true)
 	{
 		slog_error("send_penetrate error");
 		goto end;
 	}
 
 	// OK 通知上层
-	if (!ptr_interface)
-	{
-		slog_error("ptr_interface empty");
-		goto end;
-	}
-
-	if (ptr_interface->on_interface_ipm_server_agent_new_fd_tunnel(client_bufferevent, buff_bev, fd) != true)
+	if (ptr_interface->on_interface_ipm_server_agent_new_tunnel(client_bufferevent, buff_bev, index) != true)
 	{
 		// 此时未托管
-		slog_error("on_interface_ipm_server_agent_new_fd_tunnel error");
+		slog_error("on_interface_ipm_server_agent_new_tunnel error");
 		goto end;
 	}
 

@@ -30,8 +30,9 @@ public:
 
 public:
 	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev);
-	virtual bool on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd);
-	virtual void on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd);
+	virtual unsigned long long on_interface_ipm_server_agent_next_tunnel_index();
+	virtual bool on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, bufferevent* to_bev, unsigned long long index);
+	virtual void on_interface_ipm_server_tunnel_fail(unsigned long long index);
 
 public:
 	void on_fail();
@@ -66,7 +67,10 @@ private:
 	std::set<bufferevent*>	sbe_bufferevent;		// 第一步，缓存的，可以分配到tunnel或agent
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>> msa_agent;		// 连接+代理listen
 	std::map<addr_pkg_idx, std::shared_ptr<ipm_server_agent>> asa_agent;		// 连接+代理listen
-	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// evutil_socket_t to_fd
+	// 隧道编号，随机播种的单调计数器。不能用访客的 fd：隧道冲刷时 fd 已经关掉，
+	// 下一个访客立刻拿到同一个号，会把还在冲刷的隧道顶掉，迟到的 join 也会接进别人的隧道
+	unsigned long long tunnel_seq;
+	std::map<unsigned long long, std::shared_ptr<ipm_server_tunnel>> mst_tunnel;		// 隧道编号
 };
 
 #endif

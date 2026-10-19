@@ -20,6 +20,9 @@ bool ipm_server::init(const char* server_name_c, const char* server_port_name_c,
 	key = key_c;
 	max_buffer = max_buffer_sz;
 
+	// 隧道编号随机播种，理由见头文件
+	evutil_secure_rng_get_bytes(&tunnel_seq, sizeof(tunnel_seq));
+
 	if (util::getaddrinfo_first(server_name.c_str(), server_port_name.c_str(), server_addr, &server_addr_len) != true)
 	{
 		slog_error("getaddrinfo_first server_name error");
@@ -56,7 +59,7 @@ bool ipm_server::exit()
 	bool ret = false;
 	std::set<bufferevent*>::iterator iter_sbe;
 	std::map<bufferevent*, std::shared_ptr<ipm_server_agent>>::iterator iter_agent;
-	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter_tunnel;
+	std::map<unsigned long long, std::shared_ptr<ipm_server_tunnel>>::iterator iter_tunnel;
 
 	for (iter_tunnel = mst_tunnel.begin(); iter_tunnel != mst_tunnel.end(); ++iter_tunnel)
 	{
@@ -95,6 +98,7 @@ void ipm_server::reset()
 	server_state = SERVER_STATE::IDLE;
 	server_addr_len = 0;
 	max_buffer = DEF_MAX_BUFFER;
+	tunnel_seq = 0;
 	sbe_bufferevent.clear();
 	msa_agent.clear();
 	asa_agent.clear();
@@ -121,9 +125,18 @@ void ipm_server::on_interface_ipm_server_agent_fail(bufferevent* bev)
 	msa_agent.erase(iter);
 }
 
-bool ipm_server::on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd)
+unsigned long long ipm_server::on_interface_ipm_server_agent_next_tunnel_index()
 {
-	std::shared_ptr<ipm_server_tunnel> st_tunnel = std::make_shared<ipm_server_tunnel>(root_event_base, this, to_fd);
+	// 0 是控制包的判别值，不能当隧道编号发出去
+	if (++tunnel_seq == 0)
+		++tunnel_seq;
+
+	return tunnel_seq;
+}
+
+bool ipm_server::on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, bufferevent* to_bev, unsigned long long index)
+{
+	std::shared_ptr<ipm_server_tunnel> st_tunnel = std::make_shared<ipm_server_tunnel>(root_event_base, this, index);
 	bool ret = false;
 
 	if (st_tunnel->init(to_bev, max_buffer) != true)
@@ -132,7 +145,7 @@ bool ipm_server::on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, b
 		goto end;
 	}
 
-	mst_tunnel[to_fd] = st_tunnel;
+	mst_tunnel[index] = st_tunnel;
 
 	ret = true;
 end:
@@ -144,13 +157,13 @@ end:
 	return ret;
 }
 
-void ipm_server::on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd)
+void ipm_server::on_interface_ipm_server_tunnel_fail(unsigned long long index)
 {
-	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
+	std::map<unsigned long long, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
 
-	slog_debug("server tunnel_fail %llu", (unsigned long long)to_fd);
+	slog_debug("server tunnel_fail %llu", index);
 
-	if ((iter = mst_tunnel.find(to_fd)) == mst_tunnel.end())
+	if ((iter = mst_tunnel.find(index)) == mst_tunnel.end())
 	{
 		slog_error("mst_tunnel error");
 		on_fail();
@@ -502,10 +515,9 @@ end:
 bool ipm_server::join_tunnel_client(struct bufferevent* bev, unsigned long long index)
 {
 	bool ret = false;
-	std::map<evutil_socket_t, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
-	evutil_socket_t fd = (evutil_socket_t)index;
+	std::map<unsigned long long, std::shared_ptr<ipm_server_tunnel>>::iterator iter;
 
-	if ((iter = mst_tunnel.find(fd)) == mst_tunnel.end())
+	if ((iter = mst_tunnel.find(index)) == mst_tunnel.end())
 		goto end;
 
 	if (iter->second->client_connected(bev) != true)

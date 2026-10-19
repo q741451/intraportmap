@@ -7,7 +7,7 @@ void ipm_client_tunnel_to_bufferevent_data_read_callback(struct bufferevent* bev
 void ipm_client_tunnel_to_bufferevent_data_write_callback(struct bufferevent* bev, void* ctx);
 void ipm_client_tunnel_to_bufferevent_event_callback(struct bufferevent* bev, short what, void* ctx);
 
-ipm_server_tunnel::ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, evutil_socket_t to_fd_u) : ptr_interface(ptr_interface_p), to_fd(to_fd_u), root_event_base(base)
+ipm_server_tunnel::ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, unsigned long long index_u) : ptr_interface(ptr_interface_p), index(index_u), root_event_base(base)
 {
 	reset();
 }
@@ -79,6 +79,13 @@ bool ipm_server_tunnel::client_connected(struct bufferevent* bev)
 {
 	bool bAccept = false;
 
+	// 一条隧道只接一个客户端连接，重复的 join 不能顶掉已接上的那条
+	if (client_state != CONN_STATE::IDLE)
+	{
+		slog_error("tunnel %llu already joined", index);
+		goto end;
+	}
+
 	client_bufferevent = bev;
 
 	bufferevent_setcb(client_bufferevent, ipm_client_tunnel_client_bufferevent_data_read_callback, ipm_client_tunnel_client_bufferevent_data_write_callback, ipm_client_tunnel_client_bufferevent_event_callback, this);
@@ -127,14 +134,14 @@ end:
 
 void ipm_server_tunnel::on_fail()
 {
-	slog_debug("tunnel on_fail %llu", (unsigned long long)to_fd);
+	slog_debug("tunnel on_fail %llu", index);
 	if (ptr_interface)
-		ptr_interface->on_interface_ipm_server_tunnel_fail(to_fd);
+		ptr_interface->on_interface_ipm_server_tunnel_fail(index);
 }
 
 void ipm_server_tunnel::on_client_fail()
 {
-	slog_debug("server_tunnel on_client_fail %llu", (unsigned long long)to_fd);
+	slog_debug("server_tunnel on_client_fail %llu", index);
 
 	// 第二次调用不处理
 	if (client_state == CONN_STATE::BROKEN)
@@ -185,7 +192,7 @@ void ipm_server_tunnel::on_client_fail()
 
 void ipm_server_tunnel::on_to_fail()
 {
-	slog_debug("server_tunnel on_to_fail %llu", (unsigned long long)to_fd);
+	slog_debug("server_tunnel on_to_fail %llu", index);
 
 	// 第二次调用不处理
 	if (to_state == CONN_STATE::BROKEN)
@@ -236,7 +243,7 @@ void ipm_server_tunnel::on_to_fail()
 void ipm_server_tunnel::on_client_bufferevent_data_read_callback(struct bufferevent* bev)
 {
 #if VERBOSE_DEBUG
-	slog_debug("tunnel %llu client recv data", (unsigned long long)to_fd);
+	slog_debug("tunnel %llu client recv data", index);
 #endif
 
 	flush_client_data();
@@ -262,7 +269,7 @@ void ipm_server_tunnel::on_client_bufferevent_data_write_callback(struct buffere
 
 void ipm_server_tunnel::on_client_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
-	slog_debug("tunnel client event %llu, flag = %u", (unsigned long long)to_fd, (unsigned int)flag);
+	slog_debug("tunnel client event %llu, flag = %u", index, (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_debug("client BEV_EVENT_READING error");
 	}
@@ -296,7 +303,7 @@ void ipm_server_tunnel::on_client_bufferevent_event_callback(struct bufferevent*
 void ipm_server_tunnel::on_to_bufferevent_data_read_callback(struct bufferevent* bev)
 {
 #if VERBOSE_DEBUG
-	slog_debug("tunnel %llu to recv data", (unsigned long long)to_fd);
+	slog_debug("tunnel %llu to recv data", index);
 #endif
 
 	if (client_state == CONN_STATE::RUNNING)
@@ -340,7 +347,7 @@ void ipm_server_tunnel::on_to_bufferevent_data_write_callback(struct bufferevent
 
 void ipm_server_tunnel::on_to_bufferevent_event_callback(struct bufferevent* bev, short flag)
 {
-	slog_debug("tunnel to event %llu, flag = %u", (unsigned long long)to_fd, (unsigned int)flag);
+	slog_debug("tunnel to event %llu, flag = %u", index, (unsigned int)flag);
 	if (flag & BEV_EVENT_READING) {
 		slog_debug("to BEV_EVENT_READING error");
 	}

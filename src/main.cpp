@@ -24,6 +24,10 @@ int main(int argc, char* argv[])
 			goto end;
 		}
 	}
+#else
+	// 往对端已关闭的连接上写，内核发 SIGPIPE，默认处置是不留日志地杀掉进程。
+	// 忽略后写失败变成 EPIPE，由 libevent 当普通连接错误报上来
+	signal(SIGPIPE, SIG_IGN);
 #endif
 
 	if (ipm.init(argc, argv) != true)

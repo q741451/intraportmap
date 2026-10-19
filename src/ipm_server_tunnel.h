@@ -5,7 +5,7 @@ class interface_ipm_server_tunnel
 {
 public:
 	virtual ~interface_ipm_server_tunnel() {}
-	virtual void on_interface_ipm_server_tunnel_fail(evutil_socket_t to_fd) = 0;
+	virtual void on_interface_ipm_server_tunnel_fail(unsigned long long index) = 0;
 };
 
 class ipm_server_tunnel
@@ -24,7 +24,7 @@ public:
 		FLUSH_AND_EXIT,
 	};
 
-	ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, evutil_socket_t to_fd_u);
+	ipm_server_tunnel(struct event_base* base, interface_ipm_server_tunnel* ptr_interface_p, unsigned long long index_u);
 
 	bool init(struct bufferevent* to_bev, size_t max_buffer_sz);
 	bool is_init();
@@ -52,7 +52,7 @@ private:
 	bool is_state_init;
 	interface_ipm_server_tunnel* ptr_interface;
 	// 编号
-	evutil_socket_t to_fd;
+	unsigned long long index;
 	// 配置
 	size_t max_buffer;
 	// 不释放的变量

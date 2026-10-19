@@ -7,7 +7,8 @@ class interface_ipm_server_agent
 public:
 	virtual ~interface_ipm_server_agent() {}
 	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev) = 0;
-	virtual bool on_interface_ipm_server_agent_new_fd_tunnel(bufferevent* bev, bufferevent* to_bev, evutil_socket_t to_fd) = 0;
+	virtual unsigned long long on_interface_ipm_server_agent_next_tunnel_index() = 0;
+	virtual bool on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, bufferevent* to_bev, unsigned long long index) = 0;
 };
 
 // 服务器端的用户fd服务模块，多个，listen来访客立即建立
