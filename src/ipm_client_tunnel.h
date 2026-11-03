@@ -10,21 +10,14 @@ public:
 	virtual void on_interface_ipm_tunnel_client_fail(unsigned long long index) = 0;
 };
 
-class ipm_client_tunnel
+// 同时连服务端和被代理主机，两边都就绪后交给 ipm_relay 转发
+class ipm_client_tunnel : public interface_ipm_relay
 {
 public:
-	enum class CONN_STATE : unsigned int
+	enum SIDE : int
 	{
-		IDLE,
-		CONNECTING,
-		RUNNING,
-		BROKEN,
-	};
-	enum class FLUSH_STATE : unsigned int // 非RUNNING时也有效，CONNECTED后跑
-	{
-		NORMAL,
-		FLUSH_AND_REREAD,
-		FLUSH_AND_EXIT,
+		SIDE_SERVER = 0,	// 服务端
+		SIDE_FROM = 1,		// 被代理主机
 	};
 
 	ipm_client_tunnel(struct event_base* base, interface_ipm_client_tunnel* ptr_interface_p, unsigned long long index_u);
@@ -35,20 +28,19 @@ public:
 	void reset();
 
 public:
+	virtual void on_interface_ipm_relay_close();
+
+public:
 	void on_fail();
-	void on_server_fail();
-	void on_from_fail();
-	void on_server_bufferevent_data_read_callback(struct bufferevent* bev);
 	void on_server_bufferevent_data_write_callback(struct bufferevent* bev);
 	void on_server_bufferevent_event_callback(struct bufferevent* bev, short what);
-	void on_from_bufferevent_data_read_callback(struct bufferevent* bev);
-	void on_from_bufferevent_data_write_callback(struct bufferevent* bev);
 	void on_from_bufferevent_event_callback(struct bufferevent* bev, short what);
 
 private:
 	bool connect_to_server();		// 尝试连接到服务器
 	bool connect_to_from();			// 尝试连接到被代理主机
 	bool send_penetrate(struct bufferevent* bev);	// 发送开辟端口信息
+	void start_relay();
 
 private:
 	bool is_state_init;
@@ -62,15 +54,12 @@ private:
 	struct sockaddr_storage from_server_addr;
 	unsigned int from_server_addr_len;
 	std::string key;
-	size_t max_buffer;
-	// 2连接状态，清空状态
-	CONN_STATE from_state;
-	CONN_STATE server_state;
-	FLUSH_STATE from_flush_state;
-	FLUSH_STATE server_flush_state;
-	// 转发的buffer
+	// 连接阶段用 bufferevent，两边都就绪后 fd 交给 relay，bev 留到 exit 释放
+	bool is_server_ready;					// 已连上，握手已发完
+	bool is_from_ready;						// 已连上
 	struct bufferevent* server_bufferevent;	// 连接到服务器
 	struct bufferevent* from_bufferevent;	// 连接到被代理主机
+	ipm_relay relay;
 };
 
 #endif

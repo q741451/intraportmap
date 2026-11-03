@@ -31,7 +31,7 @@ public:
 public:
 	virtual void on_interface_ipm_server_agent_fail(bufferevent* bev);
 	virtual unsigned long long on_interface_ipm_server_agent_next_tunnel_index();
-	virtual bool on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, bufferevent* to_bev, unsigned long long index);
+	virtual bool on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, evutil_socket_t to_fd, unsigned long long index);
 	virtual void on_interface_ipm_server_tunnel_fail(unsigned long long index);
 
 public:

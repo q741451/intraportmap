@@ -134,14 +134,14 @@ unsigned long long ipm_server::on_interface_ipm_server_agent_next_tunnel_index()
 	return tunnel_seq;
 }
 
-bool ipm_server::on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, bufferevent* to_bev, unsigned long long index)
+bool ipm_server::on_interface_ipm_server_agent_new_tunnel(bufferevent* bev, evutil_socket_t to_fd, unsigned long long index)
 {
 	std::shared_ptr<ipm_server_tunnel> st_tunnel = std::make_shared<ipm_server_tunnel>(root_event_base, this, index);
 	bool ret = false;
 
-	if (st_tunnel->init(to_bev, max_buffer) != true)
+	if (st_tunnel->init(to_fd, max_buffer) != true)
 	{
-		slog_error("st_tunnel->init(to_bev) error");
+		slog_error("st_tunnel->init(to_fd) error");
 		goto end;
 	}
 

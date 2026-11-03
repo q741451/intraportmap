@@ -169,7 +169,6 @@ void ipm_server_agent::on_client_bufferevent_event_callback(struct bufferevent* 
 void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socket_t fd, struct sockaddr* sa, int socklen)
 {
 	bool ret = false;
-	struct bufferevent* buff_bev = NULL;
 	unsigned long long index = 0;
 
 	if (fd == -1)
@@ -194,12 +193,6 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 		goto end;
 	}
 
-	if ((buff_bev = bufferevent_socket_new(root_event_base, fd, BEV_OPT_CLOSE_ON_FREE)) == NULL)
-	{
-		slog_error("bufferevent_socket_new error");
-		goto end;
-	}
-
 	// 通知客户端
 	if (send_penetrate(client_bufferevent, index) != true)
 	{
@@ -208,7 +201,7 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 	}
 
 	// OK 通知上层
-	if (ptr_interface->on_interface_ipm_server_agent_new_tunnel(client_bufferevent, buff_bev, index) != true)
+	if (ptr_interface->on_interface_ipm_server_agent_new_tunnel(client_bufferevent, fd, index) != true)
 	{
 		// 此时未托管
 		slog_error("on_interface_ipm_server_agent_new_tunnel error");
@@ -219,15 +212,8 @@ void ipm_server_agent::on_listener(struct evconnlistener* listener, evutil_socke
 end:
 	if (ret != true)
 	{
-		if (buff_bev)
-		{
-			bufferevent_free(buff_bev);
-			buff_bev = NULL;
-		}
-		else if (fd != -1)
-		{
+		if (fd != -1)
 			evutil_closesocket(fd);
-		}
 	}
 }
 

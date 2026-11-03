@@ -14,6 +14,7 @@ public:
 	static std::string get_portstr_from_sockaddr(struct sockaddr* addr_in);
 	static unsigned short get_port_from_sockaddr(struct sockaddr* addr_in);
 	static bool set_evutil_socket_keepalive(evutil_socket_t fd);
+	static bool is_socket_error_retriable(int err);
 	static bool dual_stack_v4_fallback(const struct sockaddr* addr, struct sockaddr_in& out_v4);
 	static char* get_udp_buffer();
 	static evutil_socket_t bind_udp_socket(const struct sockaddr* addr, int addr_len, bool v6only);

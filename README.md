@@ -58,7 +58,7 @@ $ ./intraportmap -c -s test.3322.org:22120 -t [::]:14433 -f 127.0.0.1:4433 -U -G
 -f from_server:port被映射的内网地址和端口（仅客户端）
 -k key             通信密钥，两端需一致
 -w seconds         客户端断线重连间隔，默认15
--b bytes           每条TCP隧道的缓冲上限，默认1048576
+-b bytes           TCP隧道每个方向的缓冲区，默认16384
 -u                 在TCP之外同时映射UDP
 -U                 只映射UDP
 -T seconds         UDP会话空闲超时，默认180

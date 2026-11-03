@@ -24,7 +24,7 @@
 #endif
 
 #define VERBOSE_DEBUG 0
-#define DEF_MAX_BUFFER (1024 * 1024)
+#define DEF_MAX_BUFFER (16 * 1024)
 
 #include <errno.h>
 #include <signal.h>
@@ -48,6 +48,7 @@
 #include "util.h"
 #include "ipm_types.h"
 #include "ipm_udp_io.h"
+#include "ipm_relay.h"
 #include "ipm_server_tunnel.h"
 #include "ipm_server_agent.h"
 #include "ipm_server.h"

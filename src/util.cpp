@@ -255,6 +255,16 @@ end:
 	return ret;
 }
 
+// 非阻塞收发暂时做不了，等下次可读可写再试（同 libevent 内部的 EVUTIL_ERR_RW_RETRIABLE）
+bool util::is_socket_error_retriable(int err)
+{
+#ifdef _WIN32
+	return err == WSAEWOULDBLOCK || err == WSAEINTR;
+#else
+	return err == EAGAIN || err == EWOULDBLOCK || err == EINTR;
+#endif
+}
+
 // 全进程共用的 UDP 收包缓冲。单线程事件循环下，一次收到的包在本次回调里全部
 // 转发完（ipm_udp_batch 在回调返回前 flush）才会读下一次，收包路径也不会递归回
 // 自己，所以不存在重入。转发时会话头由 ipm_udp_batch 拼在载荷前面，载荷不再拷贝
